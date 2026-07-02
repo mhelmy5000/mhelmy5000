@@ -15,13 +15,24 @@ verifiable rather than a wall of stubs.
 - ✅ Local infra compose (Postgres+pgvector, Redis, RabbitMQ, Ollama).
 - ✅ Architecture + AI-layer documentation.
 
-## Phase 1 — Backend spine (4–6 wks)
-- 🔨 NestJS app skeleton; config, logging, OpenTelemetry, health checks.
-- 🔨 IAM: OIDC/SAML/Entra login, JWT, RBAC guard + ABAC policy engine.
-- 🔨 Tenant + audit + notification modules; transactional outbox on RabbitMQ.
-- 🔨 Prisma migrations + RLS policies; seed data (sample org, strategy, KPIs…).
-- 🔨 KPI + Strategy modules end-to-end (CRUD, measurements, RAG calc) with REST +
-  GraphQL and Swagger; unit + integration tests.
+## Phase 1 — Backend spine (in progress)
+- ✅ NestJS app skeleton (`apps/api`): bootstrap, config, Swagger, global
+  validation, Helmet/CORS, `PrismaModule`.
+- ✅ IAM: JWT auth (Passport) with a global guard (`@Public()` opt-out), **RBAC**
+  via `@RequirePermissions` + `PermissionsGuard`, **ABAC** org-unit scopes on the
+  principal, token issuance resolving roles→permissions from the DB.
+- ✅ **KPI module end-to-end**: CRUD, measurement upsert, weighted scorecard,
+  RAG evaluation — delegated to `@helm/domain` (pure core, **24/24 unit tests**).
+- ✅ AI endpoint (`/api/ai/kpi-analysis`) wired to `@helm/ai-core`, grounded on
+  the live scorecard.
+- ✅ Seed data (`prisma/seed.ts`): demo tenant, 3 roles, 2 users, 6 KPIs × 7
+  months of measurements.
+- ✅ Zero-dependency **reference API server** mirroring the KPI/AI endpoints; the
+  prototype's KPI Scorecard now reads **live data** from it (verified).
+- 🔨 Prisma migrations + Postgres RLS policies; wire the full NestJS app against
+  a live database (needs `pnpm install` — deps unavailable in the CI sandbox).
+- 🔨 Strategy module; transactional outbox on RabbitMQ; audit + notifications.
+- 🔨 GraphQL resolvers alongside REST; integration tests.
 
 ## Phase 2 — Frontend spine (4–6 wks)
 - ⏳ Next.js 15 app: auth, tenant switch, i18n (EN/AR), theming from prototype.
@@ -49,6 +60,7 @@ verifiable rather than a wall of stubs.
 - ⏳ Admin/User/Developer guides; ER/sequence/component diagrams.
 
 ## Suggested next step
-Stand up **Phase 1** starting with IAM + the KPI module end-to-end against the
-existing Prisma schema and `@helm/ai-core`, so the prototype's KPI Scorecard can
-be pointed at real data. Say the word and we build that module next.
+Phase 1's IAM + KPI slice is done and the prototype consumes it live. Next:
+extend the same patterns to the **Risk/KRI** and **Portfolio** modules (domain
+core + repository + controller + prototype wiring), and stand the full NestJS app
+up against Postgres with migrations + RLS.

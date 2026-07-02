@@ -22,6 +22,8 @@ tested pieces instead of a wall of empty stubs.
 |---|---|
 | **Premium UX prototype** — enterprise shell, 7 modules (Exec Dashboard, Strategy Map/BSC, KPI Scorecards, Risk heatmap, Portfolio matrix, OKRs, AI Copilot), command palette (⌘K), dark/light, English + Arabic (RTL), interactive charts. | Rendered & driven in headless Chromium — all views, both themes, RTL, chat, and command palette verified with **0 console errors**. |
 | **`@helm/ai-core`** — provider-agnostic AI layer: router with priority + cross-provider fallback, adapters for **Claude / OpenAI / Gemini / Ollama / Azure OpenAI** (+ Bedrock stub), RAG (vector store + retriever), versioned prompt templates, EPM insight service. | Compiles under TS `strict`; **12/12 runtime assertions pass** (chain ordering, live reconfigure, fallback, RAG tenant isolation, prompt grounding). |
+| **`@helm/domain`** — pure KPI evaluation core: attainment, direction-aware RAG, weighted scorecard rollups, linear forecast. | **24/24 unit tests pass** (`packages/domain`). |
+| **`@helm/api`** — NestJS backend (Phase 1): JWT auth + RBAC/ABAC guards, KPI module end-to-end (CRUD, measurements, scorecard), AI endpoint wired to `@helm/ai-core`, Prisma repo, seed. Plus a **zero-dependency reference server** mirroring the endpoints. | Reference server exercised end-to-end; prototype KPI Scorecard reads **live data** from it (verified in-browser). |
 | **Prisma schema** — multi-tenant core domains, RBAC/ABAC, audit, AI provider config. | Authored & reviewed (`prisma/schema.prisma`). |
 | **Local infra** — Postgres + pgvector, Redis, RabbitMQ, Ollama. | `infra/docker-compose.yml`. |
 | **Docs** — architecture (C4, DDD, CQRS, security), AI layer, phased roadmap. | `docs/`. |
@@ -40,6 +42,14 @@ python3 -m http.server 8080
 
 Then: press **⌘K / Ctrl-K** for the command palette, toggle the **moon** (theme)
 and **ع** (Arabic RTL) buttons, click **AI Copilot**, and explore every module.
+
+**See the KPI Scorecard on live data** — start the zero-dependency backend and the
+scorecard's badge flips to “Live API”:
+
+```bash
+node epm-platform/apps/api/dev-server.mjs   # serves http://localhost:3001/api
+```
+
 
 ## 🧠 The AI layer in 20 lines
 

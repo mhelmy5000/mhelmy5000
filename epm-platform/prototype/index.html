@@ -348,6 +348,10 @@ td.name{color:var(--ink-1);font-weight:600}
    Helm EPM prototype — client-side app (no framework, no deps)
    ========================================================================== */
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+// Base URL of the Helm EPM API (NestJS in prod; the zero-dep reference server
+// in dev). Override in the console: localStorage.setItem('helm.apiBase', url).
+const API_BASE=localStorage.getItem('helm.apiBase')||'http://localhost:3001/api';
+const RAG2CODE={ON_TRACK:'g',AT_RISK:'w',OFF_TRACK:'r',NOT_STARTED:'n'};
 const NS="http://www.w3.org/2000/svg";
 const svg=(t,a={})=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n;};
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -520,6 +524,51 @@ const statTile=(o)=>`<div class="card stat hover">
   <div class="delta ${o.dir}">${o.dir==="up"?"▲":"▼"} ${o.delta} <span class="vs">${o.vs}</span></div>
 </div>`;
 
+/* ---- KPI scorecard: shared row renderer + live API fetch ---- */
+// Normalize the local demo KPIs to the same shape the API returns.
+function normalizeStaticKpi(k){
+  const attPct=Math.round((k.unit==='d'?k.target/k.actual:k.actual/k.target)*100);
+  return {name:k.name,owner:k.owner,unit:k.unit,actual:k.actual,target:k.target,attPct,rag:k.status,trend:k.trend};
+}
+// Normalize an API KpiView (status = ON_TRACK/AT_RISK/… ; unit '%'|'d'|null).
+function normalizeApiKpi(k){
+  return {name:k.name,owner:k.owner||'—',unit:k.unit,actual:k.actual,target:k.target,
+    attPct:k.attainmentPct,rag:RAG2CODE[k.status]||'n',trend:k.trend||[]};
+}
+function unitSuffix(u){return u==='%'?'%':u==='d'?'d':'';}
+function kpiRows(items){
+  return items.map(k=>{
+    const col=k.rag==='g'?'--good':k.rag==='w'?'--warning':k.rag==='r'?'--critical':'--muted';
+    const att=k.attPct==null?'—':k.attPct+'%';
+    const barW=k.attPct==null?0:Math.min(100,k.attPct);
+    const label=k.rag==='g'?'On target':k.rag==='w'?'At risk':k.rag==='r'?'Off track':'Not started';
+    return `<tr><td class="name">${k.name}</td><td>${k.owner}</td>
+      <td class="num" style="color:var(--ink-1);font-weight:700">${k.actual==null?'—':k.actual}${unitSuffix(k.unit)}</td>
+      <td class="num">${k.target==null?'—':k.target}${unitSuffix(k.unit)}</td>
+      <td><div style="display:flex;align-items:center;gap:10px"><div class="bar-track"><div class="bar-fill" style="width:${barW}%;background:${cv(col)}"></div></div><span style="font-size:11.5px;font-weight:700;color:var(--ink-2)">${att}</span></div></td>
+      <td>${k.trend&&k.trend.length?sparkline(k.trend,cv(col)):''}</td>
+      <td><span class="pill ${k.rag}">${label}</span></td></tr>`;
+  }).join("");
+}
+// Attempt to load live KPIs from the API; fall back silently to demo data.
+async function loadLiveKpis(){
+  const src=$("#kpiSource"),body=$("#kpiBody");
+  if(!src||!body)return;
+  try{
+    const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),1500);
+    const res=await fetch(`${API_BASE}/kpis/scorecard`,{signal:ctrl.signal});
+    clearTimeout(t);
+    if(!res.ok)throw new Error('http '+res.status);
+    const sc=await res.json();
+    body.innerHTML=kpiRows(sc.items.map(normalizeApiKpi));
+    src.textContent=`Live API · overall ${sc.overallAttainmentPct}%`;
+    src.className='pill g';
+  }catch{
+    src.textContent='Demo data (API offline)';
+    src.className='pill n';
+  }
+}
+
 const VIEWS={
   dash:()=>`
   <div class="page-head">
@@ -605,17 +654,11 @@ const VIEWS={
   },
 
   kpi:()=>`
-    <div class="page-head"><div class="lead"><h2>KPI Scorecards</h2><p>Enterprise KPI library with targets, thresholds, weighting and RAG status. ${KPIS.length} of 214 KPIs shown.</p></div>
+    <div class="page-head"><div class="lead"><h2>KPI Scorecards <span id="kpiSource" class="pill n">Demo data</span></h2><p>Enterprise KPI library with targets, thresholds, weighting and RAG status — evaluated by the shared domain core. Connects to the Helm EPM API when it is running.</p></div>
       <div class="head-actions"><button class="btn" data-toast="Filters panel opened.">Filter</button><button class="btn ai" data-nav="ai">${icon("spark")} Analyze KPIs</button><button class="btn primary" data-toast="KPI created from template.">${icon("plus")} New KPI</button></div></div>
     <div class="card" style="padding:8px 8px 4px">
     <table><thead><tr><th>KPI</th><th>Owner</th><th class="num">Actual</th><th class="num">Target</th><th>Attainment</th><th>Trend</th><th>Status</th></tr></thead>
-    <tbody>${KPIS.map(k=>{const att=Math.round((k.unit==='d'?k.target/k.actual:k.actual/k.target)*100);const col=k.status==='g'?'--good':k.status==='w'?'--warning':'--critical';return`
-      <tr><td class="name">${k.name}</td><td>${k.owner}</td>
-      <td class="num" style="color:var(--ink-1);font-weight:700">${k.actual}${k.unit==='%'?'%':k.unit==='d'?'d':''}</td>
-      <td class="num">${k.target}${k.unit==='%'?'%':k.unit==='d'?'d':''}</td>
-      <td><div style="display:flex;align-items:center;gap:10px"><div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,att)}%;background:${cv(col)}"></div></div><span style="font-size:11.5px;font-weight:700;color:var(--ink-2)">${att}%</span></div></td>
-      <td>${sparkline(k.trend,cv(col))}</td>
-      <td><span class="pill ${k.status}">${k.status==='g'?'On target':k.status==='w'?'At risk':'Off track'}</span></td></tr>`}).join("")}</tbody></table></div>`,
+    <tbody id="kpiBody">${kpiRows(KPIS.map(normalizeStaticKpi))}</tbody></table></div>`,
 
   kri:()=>{
     const lvl=(l,i)=>{const s=l*i;return s>=15?cv('--critical'):s>=10?cv('--serious'):s>=5?cv('--warning'):cv('--good');};
@@ -748,6 +791,7 @@ function render(id){
   // per-view chart init
   if(id==="dash"){areaLine($("#perfChart"),perfSeries,"--c1");$("#invDonut").innerHTML=donut(PORTFOLIO.slice(0,4).map(p=>({v:p.budget,color:'--'+p.color})));}
   if(id==="portfolio"){renderBubble();$("#pfDonut").innerHTML=donut(PORTFOLIO.map(p=>({v:p.budget,color:'--'+p.color})),140);}
+  if(id==="kpi"){loadLiveKpis();}
   if(id==="ai"){initChat();}
   wireToasts();
   $("#content").scrollTop=0;
