@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KPI Monitoring Dashboard</title>
+<style>
+  /* ---- Design tokens (validated data-viz palette) ---- */
+  :root {
+    --page:        #f9f9f7;
+    --surface-1:   #fcfcfb;
+    --text-1:      #0b0b0b;
+    --text-2:      #52514e;
+    --muted:       #898781;
+    --grid:        #e1e0d9;
+    --axis:        #c3c2b7;
+    --border:      rgba(11,11,11,0.10);
+    --shadow:      0 1px 2px rgba(11,11,11,0.05), 0 4px 16px rgba(11,11,11,0.04);
+
+    --series-1:    #2a78d6;  /* blue   */
+    --series-2:    #1baf7a;  /* aqua   */
+    --series-3:    #eda100;  /* yellow */
+    --series-4:    #4a3aa7;  /* violet */
+
+    --good:        #0ca30c;
+    --warning:     #fab219;
+    --serious:     #ec835a;
+    --critical:    #d03b3b;
+    --good-text:   #006300;
+
+    --radius: 12px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  html[data-theme="dark"] {
+    --page:        #0d0d0d;
+    --surface-1:   #1a1a19;
+    --text-1:      #ffffff;
+    --text-2:      #c3c2b7;
+    --muted:       #898781;
+    --grid:        #2c2c2a;
+    --axis:        #383835;
+    --border:      rgba(255,255,255,0.10);
+    --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+
+    --series-1:    #3987e5;
+    --series-2:    #199e70;
+    --series-3:    #c98500;
+    --series-4:    #9085e9;
+
+    --good:        #0ca30c;
+    --warning:     #fab219;
+    --serious:     #ec835a;
+    --critical:    #d03b3b;
+    --good-text:   #0ca30c;
+  }
+  @media (prefers-color-scheme: dark) {
+    html[data-theme="auto"] {
+      --page:#0d0d0d; --surface-1:#1a1a19; --text-1:#fff; --text-2:#c3c2b7;
+      --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+      --border:rgba(255,255,255,0.10);
+      --shadow:0 1px 2px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+      --series-1:#3987e5; --series-2:#199e70; --series-3:#c98500; --series-4:#9085e9;
+      --good-text:#0ca30c;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    color: var(--text-1);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.4;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 56px; }
+
+  /* ---- Header ---- */
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 24px;
+  }
+  .title h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .title p { margin: 0; color: var(--text-2); font-size: 13px; }
+  .title .live { color: var(--good-text); font-weight: 600; }
+  .live-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--good); margin-right: 5px; vertical-align: middle;
+    box-shadow: 0 0 0 0 var(--good); animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(12,163,12,0.4); }
+    70%  { box-shadow: 0 0 0 6px rgba(12,163,12,0); }
+    100% { box-shadow: 0 0 0 0 rgba(12,163,12,0); }
+  }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .seg {
+    display: inline-flex; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 3px; box-shadow: var(--shadow);
+  }
+  .seg button {
+    border: 0; background: transparent; color: var(--text-2);
+    font: inherit; font-size: 12px; font-weight: 600; padding: 6px 12px;
+    border-radius: 7px; cursor: pointer; transition: all .12s;
+  }
+  .seg button[aria-pressed="true"] { background: var(--series-1); color: #fff; }
+  .icon-btn {
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1);
+    width: 38px; height: 38px; border-radius: 10px; cursor: pointer;
+    font-size: 16px; box-shadow: var(--shadow); display: grid; place-items: center;
+  }
+
+  /* ---- Grid & cards ---- */
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px;
+  }
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;
+  }
+  .charts {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;
+  }
+  .span-2 { grid-column: span 2; }
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+    .span-2 { grid-column: span 1; }
+  }
+  @media (max-width: 560px) {
+    .kpis { grid-template-columns: 1fr; }
+  }
+
+  /* ---- KPI stat tile ---- */
+  .kpi .label { color: var(--text-2); font-size: 12.5px; font-weight: 600; }
+  .kpi .value {
+    font-size: 30px; font-weight: 650; margin: 6px 0 2px; letter-spacing: -0.02em;
+  }
+  .kpi .value .unit { font-size: 15px; font-weight: 600; color: var(--text-2); margin-left: 2px; }
+  .kpi .delta { font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+  .kpi .delta.up { color: var(--good-text); }
+  .kpi .delta.down { color: var(--critical); }
+  .kpi .delta .vs { color: var(--muted); font-weight: 500; }
+  .kpi .spark { margin-top: 10px; display: block; }
+
+  .card h2 {
+    font-size: 14px; margin: 0 0 2px; font-weight: 650;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card .sub { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+
+  /* ---- Legend ---- */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+  .legend span { font-size: 12px; color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; }
+  .legend .key { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
+  .legend .dotkey { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  /* ---- Tooltip ---- */
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 50; opacity: 0;
+    transition: opacity .08s; background: var(--surface-1); color: var(--text-1);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    box-shadow: var(--shadow); font-size: 12px; min-width: 120px;
+  }
+  .tooltip .tt-title { color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+  .tooltip .tt-row { display: flex; align-items: center; gap: 7px; justify-content: space-between; }
+  .tooltip .tt-row + .tt-row { margin-top: 3px; }
+  .tooltip .tt-name { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
+  .tooltip .tt-val { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tt-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ---- Meters ---- */
+  .meter-row { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+  .meter-row:first-of-type { margin-top: 4px; }
+  .meter-label { width: 58px; font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+  .meter-track {
+    flex: 1; height: 10px; border-radius: 6px; overflow: hidden; position: relative;
+    background: color-mix(in srgb, var(--series-1) 16%, transparent);
+  }
+  .meter-fill { height: 100%; border-radius: 6px; transition: width .6s cubic-bezier(.2,.7,.2,1); }
+  .meter-val { width: 48px; text-align: right; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* ---- Service table ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 0 10px 10px; border-bottom: 1px solid var(--grid);
+  }
+  thead th.num, tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody td { padding: 12px 10px; border-bottom: 1px solid var(--grid); color: var(--text-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody td.svc { color: var(--text-1); font-weight: 600; }
+  .status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+  .status .badge { width: 9px; height: 9px; border-radius: 50%; }
+  .status.op { color: var(--good-text); }
+  .status.op .badge { background: var(--good); }
+  .status.deg { color: var(--serious); }
+  .status.deg .badge { background: var(--warning); }
+  .status.out { color: var(--critical); }
+  .status.out .badge { background: var(--critical); }
+
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 28px; }
+  a { color: var(--series-1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title">
+      <h1>KPI Monitoring Dashboard</h1>
+      <p><span class="live"><span class="live-dot"></span>All systems operational</span>
+         &nbsp;·&nbsp; Last updated <span id="updated">just now</span></p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Time range">
+        <button data-range="24h" aria-pressed="true">24h</button>
+        <button data-range="7d"  aria-pressed="false">7d</button>
+        <button data-range="30d" aria-pressed="false">30d</button>
+      </div>
+      <button class="icon-btn" id="themeToggle" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <!-- KPI stat tiles -->
+  <section class="kpis" id="kpis"></section>
+
+  <!-- Charts -->
+  <section class="charts">
+    <div class="card span-2">
+      <h2>Response time <span style="color:var(--muted);font-weight:500;font-size:12px" id="rtRange"></span></h2>
+      <p class="sub">p50 and p95 latency across all services (ms)</p>
+      <div id="latencyChart"></div>
+      <div class="legend">
+        <span><i class="key" style="background:var(--series-1)"></i>p50 median</span>
+        <span><i class="key" style="background:var(--series-4)"></i>p95</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Request throughput</h2>
+      <p class="sub">Requests served per interval</p>
+      <div id="throughputChart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Errors by service</h2>
+      <p class="sub">Failed requests in selected window</p>
+      <div id="errorsChart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Resource utilization</h2>
+      <p class="sub">Cluster-wide averages, live</p>
+      <div id="meters"></div>
+    </div>
+
+    <div class="card">
+      <h2>Error rate</h2>
+      <p class="sub">Share of failed requests (%)</p>
+      <div id="errRateChart"></div>
+    </div>
+  </section>
+
+  <!-- Service status -->
+  <section class="card">
+    <h2>Service status</h2>
+    <p class="sub">Health, latency and error budget by service</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th><th>Status</th>
+          <th class="num">Uptime</th><th class="num">p95 latency</th>
+          <th class="num">Error rate</th><th class="num">Req/min</th>
+        </tr>
+      </thead>
+      <tbody id="svcBody"></tbody>
+    </table>
+  </section>
+
+  <footer>
+    KPI Monitoring Dashboard · self-contained demo with simulated telemetry · no external dependencies
+  </footer>
+</div>
+
+<div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   KPI Monitoring Dashboard
+   Self-contained: deterministic simulated telemetry + inline SVG.
+   ============================================================ */
+
+const NS = "http://www.w3.org/2000/svg";
+const el = (t, a = {}) => {
+  const n = document.createElementNS(NS, t);
+  for (const k in a) n.setAttribute(k, a[k]);
+  return n;
+};
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const fmt = (n, d = 0) => n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const compact = (n) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
+
+/* ---- Seeded PRNG so the demo is stable across reloads ---- */
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+/* ---- Build a time series for a range ---- */
+function series(range) {
+  const cfg = {
+    "24h": { points: 24, step: "h", label: (i) => `${String(i).padStart(2,"0")}:00` },
+    "7d":  { points: 7,  step: "d", label: (i) => ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i] },
+    "30d": { points: 30, step: "d", label: (i) => `Day ${i+1}` },
+  }[range];
+  const rng = makeRng(range === "24h" ? 11 : range === "7d" ? 23 : 47);
+  const pts = [];
+  for (let i = 0; i < cfg.points; i++) {
+    const wave = Math.sin((i / cfg.points) * Math.PI * 2) * 0.5 + 0.5; // daily-ish load curve
+    const load = 0.35 + wave * 0.6;
+    const p50 = 60 + load * 70 + rng() * 22;
+    const p95 = p50 * 1.9 + rng() * 60;
+    const req = Math.round((1800 + load * 5200 + rng() * 900));
+    const errRate = Math.max(0.05, (1 - load) * 0.9 + rng() * 0.5 + (rng() > 0.93 ? 2.4 : 0));
+    pts.push({ i, label: cfg.label(i), p50, p95, req, errRate, errors: Math.round(req * errRate / 100) });
+  }
+  return pts;
+}
+
+const RANGES = { "24h": series("24h"), "7d": series("7d"), "30d": series("30d") };
+let current = "24h";
+
+/* ---- Tooltip ---- */
+const tip = document.getElementById("tooltip");
+function showTip(html, evt) {
+  tip.innerHTML = html;
+  tip.style.opacity = "1";
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + pad, y = evt.clientY - h - pad;
+  if (x + w > window.innerWidth - 8) x = evt.clientX - w - pad;
+  if (y < 8) y = evt.clientY + pad;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+const hideTip = () => { tip.style.opacity = "0"; };
+
+/* ============================================================
+   KPI stat tiles (with sparklines)
+   ============================================================ */
+function sparkline(data, accent) {
+  const w = 120, h = 30, max = Math.max(...data), min = Math.min(...data);
+  const rng = (max - min) || 1;
+  const x = (i) => (i / (data.length - 1)) * w;
+  const y = (v) => h - 3 - ((v - min) / rng) * (h - 6);
+  const svg = el("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, class: "spark" });
+  const d = data.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  svg.appendChild(el("path", { d, fill: "none", stroke: accent, "stroke-width": 2,
+    "stroke-linecap": "round", "stroke-linejoin": "round", opacity: 0.9 }));
+  svg.appendChild(el("circle", { cx: x(data.length-1), cy: y(data[data.length-1]), r: 3, fill: accent }));
+  return svg;
+}
+
+function renderKpis() {
+  const pts = RANGES[current];
+  const totalReq = pts.reduce((a, p) => a + p.req, 0);
+  const avgP95 = pts.reduce((a, p) => a + p.p95, 0) / pts.length;
+  const avgErr = pts.reduce((a, p) => a + p.errRate, 0) / pts.length;
+  const uptime = Math.max(99.2, 100 - avgErr * 0.35);
+
+  const tiles = [
+    { label: "Uptime", value: uptime.toFixed(2), unit: "%", delta: +0.04, up: true,
+      spark: pts.map(p => 100 - p.errRate * 0.4), accent: "var(--series-2)" },
+    { label: "Avg response (p95)", value: fmt(avgP95), unit: "ms", delta: -6.2, up: true,
+      spark: pts.map(p => p.p95), accent: "var(--series-1)" },
+    { label: "Total requests", value: compact(totalReq), unit: "", delta: +12.8, up: true,
+      spark: pts.map(p => p.req), accent: "var(--series-4)" },
+    { label: "Error rate", value: avgErr.toFixed(2), unit: "%", delta: -0.31, up: true,
+      spark: pts.map(p => p.errRate), accent: "var(--series-3)" },
+  ];
+
+  const host = document.getElementById("kpis");
+  host.innerHTML = "";
+  for (const t of tiles) {
+    const card = document.createElement("div");
+    card.className = "card kpi";
+    const dir = t.delta >= 0 ? "▲" : "▼";
+    // "up" = good direction (green) regardless of sign
+    const cls = t.up ? "up" : "down";
+    card.innerHTML = `
+      <div class="label">${t.label}</div>
+      <div class="value">${t.value}${t.unit ? `<span class="unit">${t.unit}</span>` : ""}</div>
+      <div class="delta ${cls}">${dir} ${Math.abs(t.delta)}${t.unit === "%" ? " pts" : "%"}
+        <span class="vs">vs prev period</span></div>`;
+    card.appendChild(sparkline(t.spark, cssVar(t.accent.replace("var(", "").replace(")", "")) || t.accent));
+    host.appendChild(card);
+  }
+}
+
+/* ============================================================
+   Multi-line latency chart (p50 / p95) with crosshair tooltip
+   ============================================================ */
+function renderLatency() {
+  const host = document.getElementById("latencyChart");
+  host.innerHTML = "";
+  const pts = RANGES[current];
+  document.getElementById("rtRange").textContent = "· " + current;
+
+  const W = host.clientWidth || 720, H = 260;
+  const m = { t: 12, r: 16, b: 26, l: 40 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const maxY = Math.ceil(Math.max(...pts.map(p => p.p95)) / 50) * 50;
+  const x = (i) => m.l + (i / (pts.length - 1)) * iw;
+  const y = (v) => m.t + ih - (v / maxY) * ih;
+
+  const svg = el("svg", { width: "100%", height: H, viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: "none", role: "img", "aria-label": "Response time p50 and p95 over time" });
+
+  // gridlines + y ticks
+  const ticks = 4;
+  for (let g = 0; g <= ticks; g++) {
+    const v = (maxY / ticks) * g, gy = y(v);
+    svg.appendChild(el("line", { x1: m.l, y1: gy, x2: W - m.r, y2: gy,
+      stroke: cssVar("--grid"), "stroke-width": 1 }));
+    const tx = el("text", { x: m.l - 8, y: gy + 4, "text-anchor": "end",
+      "font-size": 11, fill: cssVar("--muted") });
+    tx.textContent = fmt(v);
+    svg.appendChild(tx);
+  }
+  // x labels (sparse)
+  const stepLbl = Math.ceil(pts.length / 8);
+  pts.forEach((p, i) => {
+    if (i % stepLbl && i !== pts.length - 1) return;
+    const tx = el("text", { x: x(i), y: H - 8, "text-anchor": "middle",
+      "font-size": 11, fill: cssVar("--muted") });
+    tx.textContent = p.label;
+    svg.appendChild(tx);
+  });
+
+  const linePath = (key, color) => {
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(" ");
+    // area wash for p95
+    if (key === "p95") {
+      const area = d + ` L${x(pts.length-1)},${y(0)} L${x(0)},${y(0)} Z`;
+      svg.appendChild(el("path", { d: area, fill: color, opacity: 0.08 }));
+    }
+    svg.appendChild(el("path", { d, fill: "none", stroke: color, "stroke-width": 2,
+      "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  };
+  linePath("p95", cssVar("--series-4"));
+  linePath("p50", cssVar("--series-1"));
+
+  // crosshair + markers
+  const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: cssVar("--axis"),
+    "stroke-width": 1, opacity: 0 });
+  svg.appendChild(cross);
+  const dot50 = el("circle", { r: 4.5, fill: cssVar("--series-1"),
+    stroke: cssVar("--surface-1"), "stroke-width": 2, opacity: 0 });
+  const dot95 = el("circle", { r: 4.5, fill: cssVar("--series-4"),
+    stroke: cssVar("--surface-1"), "stroke-width": 2, opacity: 0 });
+  svg.appendChild(dot95); svg.appendChild(dot50);
+
+  const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+  svg.appendChild(hit);
+  const rectToData = (evt) => {
+    const r = svg.getBoundingClientRect();
+    const px = (evt.clientX - r.left) / r.width * W;
+    let idx = Math.round(((px - m.l) / iw) * (pts.length - 1));
+    idx = Math.max(0, Math.min(pts.length - 1, idx));
+    return idx;
+  };
+  hit.addEventListener("mousemove", (e) => {
+    const idx = rectToData(e); const p = pts[idx];
+    cross.setAttribute("x1", x(idx)); cross.setAttribute("x2", x(idx)); cross.setAttribute("opacity", 1);
+    dot50.setAttribute("cx", x(idx)); dot50.setAttribute("cy", y(p.p50)); dot50.setAttribute("opacity", 1);
+    dot95.setAttribute("cx", x(idx)); dot95.setAttribute("cy", y(p.p95)); dot95.setAttribute("opacity", 1);
+    showTip(`<div class="tt-title">${p.label}</div>
+      <div class="tt-row"><span class="tt-name"><i class="tt-dot" style="background:${cssVar("--series-1")}"></i>p50</span><span class="tt-val">${fmt(p.p50)} ms</span></div>
+      <div class="tt-row"><span class="tt-name"><i class="tt-dot" style="background:${cssVar("--series-4")}"></i>p95</span><span class="tt-val">${fmt(p.p95)} ms</span></div>`, e);
+  });
+  hit.addEventListener("mouseleave", () => {
+    cross.setAttribute("opacity", 0); dot50.setAttribute("opacity", 0); dot95.setAttribute("opacity", 0);
+    hideTip();
+  });
+  host.appendChild(svg);
+}
+
+/* ============================================================
+   Throughput column chart (per-mark hover)
+   ============================================================ */
+function renderThroughput() {
+  const host = document.getElementById("throughputChart");
+  host.innerHTML = "";
+  const pts = RANGES[current];
+  const W = host.clientWidth || 340, H = 200;
+  const m = { t: 10, r: 6, b: 26, l: 40 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const maxY = Math.ceil(Math.max(...pts.map(p => p.req)) / 1000) * 1000;
+  const band = iw / pts.length;
+  const bw = Math.min(24, band * 0.62);
+  const y = (v) => m.t + ih - (v / maxY) * ih;
+
+  const svg = el("svg", { width: "100%", height: H, viewBox: `0 0 ${W} ${H}`,
+    role: "img", "aria-label": "Request throughput per interval" });
+
+  for (let g = 0; g <= 3; g++) {
+    const v = (maxY / 3) * g, gy = y(v);
+    svg.appendChild(el("line", { x1: m.l, y1: gy, x2: W - m.r, y2: gy,
+      stroke: cssVar("--grid"), "stroke-width": 1 }));
+    const tx = el("text", { x: m.l - 8, y: gy + 4, "text-anchor": "end",
+      "font-size": 10.5, fill: cssVar("--muted") });
+    tx.textContent = compact(v);
+    svg.appendChild(tx);
+  }
+
+  const stepLbl = Math.ceil(pts.length / 6);
+  pts.forEach((p, i) => {
+    const cx = m.l + band * i + band / 2;
+    const bh = ih - (y(p.req) - m.t);
+    const bar = el("rect", { x: cx - bw/2, y: y(p.req), width: bw, height: Math.max(0, bh),
+      rx: 4, fill: cssVar("--series-1") });
+    bar.style.transition = "opacity .1s";
+    bar.addEventListener("mouseenter", (e) => {
+      bar.setAttribute("opacity", 0.75);
+      showTip(`<div class="tt-title">${p.label}</div>
+        <div class="tt-row"><span class="tt-name"><i class="tt-dot" style="background:${cssVar("--series-1")}"></i>Requests</span><span class="tt-val">${fmt(p.req)}</span></div>`, e);
+    });
+    bar.addEventListener("mousemove", (e) => showTip(tip.innerHTML, e));
+    bar.addEventListener("mouseleave", () => { bar.setAttribute("opacity", 1); hideTip(); });
+    svg.appendChild(bar);
+    if (!(i % stepLbl) || i === pts.length - 1) {
+      const tx = el("text", { x: cx, y: H - 8, "text-anchor": "middle",
+        "font-size": 10.5, fill: cssVar("--muted") });
+      tx.textContent = p.label;
+      svg.appendChild(tx);
+    }
+  });
+  host.appendChild(svg);
+}
+
+/* ============================================================
+   Errors-by-service horizontal bar chart
+   ============================================================ */
+const SERVICES = [
+  { name: "api-gateway",   errors: 342, color: "--series-1" },
+  { name: "auth-service",  errors: 128, color: "--series-2" },
+  { name: "payments",      errors: 96,  color: "--series-4" },
+  { name: "search",        errors: 61,  color: "--series-3" },
+  { name: "notifications", errors: 24,  color: "--series-2" },
+];
+function renderErrors() {
+  const host = document.getElementById("errorsChart");
+  host.innerHTML = "";
+  const scale = current === "24h" ? 1 : current === "7d" ? 6.4 : 27;
+  const data = SERVICES.map(s => ({ ...s, val: Math.round(s.errors * scale) }))
+                       .sort((a, b) => b.val - a.val);
+  const W = host.clientWidth || 340, rowH = 34, H = data.length * rowH + 8;
+  const labelW = 96, m = { l: labelW, r: 44 };
+  const iw = W - m.l - m.r;
+  const maxV = Math.max(...data.map(d => d.val));
+  const svg = el("svg", { width: "100%", height: H, viewBox: `0 0 ${W} ${H}`,
+    role: "img", "aria-label": "Errors by service" });
+
+  data.forEach((d, i) => {
+    const cy = i * rowH + rowH / 2;
+    const bw = Math.max(2, (d.val / maxV) * iw);
+    const lbl = el("text", { x: m.l - 10, y: cy + 4, "text-anchor": "end",
+      "font-size": 12, fill: cssVar("--text-2") });
+    lbl.textContent = d.name;
+    svg.appendChild(lbl);
+    const bar = el("rect", { x: m.l, y: cy - 9, width: bw, height: 18, rx: 4,
+      fill: cssVar(d.color) });
+    bar.addEventListener("mouseenter", (e) => { bar.setAttribute("opacity", 0.75);
+      showTip(`<div class="tt-title">${d.name}</div>
+        <div class="tt-row"><span class="tt-name"><i class="tt-dot" style="background:${cssVar(d.color)}"></i>Errors</span><span class="tt-val">${fmt(d.val)}</span></div>`, e); });
+    bar.addEventListener("mousemove", (e) => showTip(tip.innerHTML, e));
+    bar.addEventListener("mouseleave", () => { bar.setAttribute("opacity", 1); hideTip(); });
+    svg.appendChild(bar);
+    const vlbl = el("text", { x: m.l + bw + 8, y: cy + 4, "font-size": 12,
+      fill: cssVar("--text-1"), "font-weight": 600 });
+    vlbl.textContent = compact(d.val);
+    svg.appendChild(vlbl);
+  });
+  host.appendChild(svg);
+}
+
+/* ============================================================
+   Error-rate area line
+   ============================================================ */
+function renderErrRate() {
+  const host = document.getElementById("errRateChart");
+  host.innerHTML = "";
+  const pts = RANGES[current];
+  const W = host.clientWidth || 340, H = 200;
+  const m = { t: 12, r: 10, b: 26, l: 34 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const maxY = Math.max(2, Math.ceil(Math.max(...pts.map(p => p.errRate))));
+  const x = (i) => m.l + (i / (pts.length - 1)) * iw;
+  const y = (v) => m.t + ih - (v / maxY) * ih;
+  const color = cssVar("--series-3");
+
+  const svg = el("svg", { width: "100%", height: H, viewBox: `0 0 ${W} ${H}`,
+    role: "img", "aria-label": "Error rate over time" });
+  for (let g = 0; g <= 2; g++) {
+    const v = (maxY / 2) * g, gy = y(v);
+    svg.appendChild(el("line", { x1: m.l, y1: gy, x2: W - m.r, y2: gy,
+      stroke: cssVar("--grid"), "stroke-width": 1 }));
+    const tx = el("text", { x: m.l - 8, y: gy + 4, "text-anchor": "end",
+      "font-size": 10.5, fill: cssVar("--muted") });
+    tx.textContent = v.toFixed(1) + "%";
+    svg.appendChild(tx);
+  }
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.errRate).toFixed(1)}`).join(" ");
+  svg.appendChild(el("path", { d: d + ` L${x(pts.length-1)},${y(0)} L${x(0)},${y(0)} Z`,
+    fill: color, opacity: 0.10 }));
+  svg.appendChild(el("path", { d, fill: "none", stroke: color, "stroke-width": 2,
+    "stroke-linecap": "round", "stroke-linejoin": "round" }));
+
+  const dot = el("circle", { r: 4.5, fill: color, stroke: cssVar("--surface-1"),
+    "stroke-width": 2, opacity: 0 });
+  svg.appendChild(dot);
+  const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+  svg.appendChild(hit);
+  hit.addEventListener("mousemove", (e) => {
+    const r = svg.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width * W;
+    let idx = Math.round(((px - m.l) / iw) * (pts.length - 1));
+    idx = Math.max(0, Math.min(pts.length - 1, idx));
+    const p = pts[idx];
+    dot.setAttribute("cx", x(idx)); dot.setAttribute("cy", y(p.errRate)); dot.setAttribute("opacity", 1);
+    showTip(`<div class="tt-title">${p.label}</div>
+      <div class="tt-row"><span class="tt-name"><i class="tt-dot" style="background:${color}"></i>Error rate</span><span class="tt-val">${p.errRate.toFixed(2)}%</span></div>`, e);
+  });
+  hit.addEventListener("mouseleave", () => { dot.setAttribute("opacity", 0); hideTip(); });
+  host.appendChild(svg);
+}
+
+/* ============================================================
+   Resource meters
+   ============================================================ */
+function renderMeters() {
+  const host = document.getElementById("meters");
+  const bump = current === "24h" ? 0 : current === "7d" ? 4 : 7;
+  const rows = [
+    { label: "CPU",     pct: 58 + bump },
+    { label: "Memory",  pct: 71 + bump },
+    { label: "Disk",    pct: 44 + Math.round(bump/2) },
+    { label: "Network", pct: 33 + bump },
+  ];
+  const sev = (p) => p >= 85 ? cssVar("--critical") : p >= 70 ? cssVar("--warning") : cssVar("--series-1");
+  host.innerHTML = rows.map(r => `
+    <div class="meter-row">
+      <span class="meter-label">${r.label}</span>
+      <span class="meter-track">
+        <span class="meter-fill" style="width:${Math.min(100,r.pct)}%;background:${sev(r.pct)}"></span>
+      </span>
+      <span class="meter-val">${Math.min(100,r.pct)}%</span>
+    </div>`).join("");
+}
+
+/* ============================================================
+   Service status table
+   ============================================================ */
+function renderTable() {
+  const scale = current === "24h" ? 1 : current === "7d" ? 6.4 : 27;
+  const rows = [
+    { svc: "api-gateway",   status: "op",  uptime: 99.98, p95: 182, err: 0.42, rpm: 4820 },
+    { svc: "auth-service",  status: "op",  uptime: 99.95, p95: 96,  err: 0.18, rpm: 2140 },
+    { svc: "payments",      status: "deg", uptime: 99.71, p95: 341, err: 1.24, rpm: 880 },
+    { svc: "search",        status: "op",  uptime: 99.99, p95: 128, err: 0.09, rpm: 3160 },
+    { svc: "notifications", status: "op",  uptime: 99.97, p95: 74,  err: 0.11, rpm: 1520 },
+    { svc: "media-worker",  status: "out", uptime: 97.40, p95: 0,   err: 8.90, rpm: 0 },
+  ];
+  const map = { op: ["op", "Operational"], deg: ["deg", "Degraded"], out: ["out", "Outage"] };
+  document.getElementById("svcBody").innerHTML = rows.map(r => {
+    const [cls, txt] = map[r.status];
+    const p95 = r.p95 ? fmt(r.p95) + " ms" : "—";
+    return `<tr>
+      <td class="svc">${r.svc}</td>
+      <td><span class="status ${cls}"><span class="badge"></span>${txt}</span></td>
+      <td class="num">${r.uptime.toFixed(2)}%</td>
+      <td class="num">${p95}</td>
+      <td class="num">${r.err.toFixed(2)}%</td>
+      <td class="num">${fmt(Math.round(r.rpm))}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============================================================
+   Orchestration
+   ============================================================ */
+function renderAll() {
+  renderKpis();
+  renderLatency();
+  renderThroughput();
+  renderErrors();
+  renderErrRate();
+  renderMeters();
+  renderTable();
+}
+
+// Time-range switch
+document.querySelectorAll(".seg button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", "false"));
+    btn.setAttribute("aria-pressed", "true");
+    current = btn.dataset.range;
+    renderAll();
+  });
+});
+
+// Theme toggle (auto -> light -> dark -> auto)
+const themeBtn = document.getElementById("themeToggle");
+themeBtn.addEventListener("click", () => {
+  const order = ["auto", "light", "dark"];
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  document.documentElement.setAttribute("data-theme", next);
+  themeBtn.title = "Theme: " + next;
+  renderAll(); // recolor SVGs from fresh CSS vars
+});
+
+// "Last updated" ticker
+function tickUpdated() {
+  const now = new Date();
+  document.getElementById("updated").textContent =
+    now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+tickUpdated();
+setInterval(tickUpdated, 1000);
+
+// Re-render on resize (debounced) so SVG widths stay correct
+let rz;
+window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderAll, 150); });
+
+renderAll();
+</script>
+</body>
+</html>
