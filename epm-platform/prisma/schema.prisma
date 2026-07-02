@@ -1,0 +1,541 @@
+// =============================================================================
+// Helm EPM — Prisma schema (core domains)
+// Multi-tenant Enterprise Performance Management platform.
+//
+// Conventions:
+//  - Every tenant-owned row carries `tenantId` (row-level multi-tenancy). A
+//    Postgres RLS policy (see infra/postgres/rls.sql) enforces isolation.
+//  - Soft delete via `deletedAt`; audit via the AuditLog table + `createdBy`.
+//  - Enums model governed vocabularies (status, RAG, cadence).
+// This is the core slice; module-specific fields expand per feature module.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy, identity & access control
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  locale      String   @default("en")
+  timezone    String   @default("UTC")
+  branding    Json? // logo, palette, product name overrides
+  featureFlags Json?
+  status      TenantStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users          User[]
+  orgUnits       OrgUnit[]
+  roles          Role[]
+  perspectives   Perspective[]
+  objectives     Objective[]
+  kpis           Kpi[]
+  risks          Risk[]
+  initiatives    Initiative[]
+  portfolios     Portfolio[]
+  projects       Project[]
+  aiProviders    AiProviderConfig[]
+  auditLogs      AuditLog[]
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+model User {
+  id          String   @id @default(cuid())
+  tenantId    String
+  email       String
+  displayName String
+  locale      String?
+  externalId  String? // IdP subject (SAML/OIDC/Entra)
+  status      UserStatus @default(ACTIVE)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  orgUnitId  String?
+  orgUnit    OrgUnit?   @relation(fields: [orgUnitId], references: [id])
+  roles      UserRole[]
+  ownedKpis  Kpi[]      @relation("KpiOwner")
+  ownedRisks Risk[]     @relation("RiskOwner")
+
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+// RBAC + ABAC: roles carry permissions; attribute policies scope by org unit.
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String // e.g. "strategy.admin", "pmo.viewer"
+  name        String
+  description String?
+  permissions String[] // permission keys granted
+  isSystem    Boolean  @default(false)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id])
+  users  UserRole[]
+
+  @@unique([tenantId, key])
+  @@map("roles")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  // ABAC scope: null = tenant-wide; otherwise restricted to this subtree.
+  scopeOrgUnitId String?
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// Organization hierarchy: business units, departments, cost centers.
+model OrgUnit {
+  id         String  @id @default(cuid())
+  tenantId   String
+  parentId   String?
+  name       String
+  type       OrgUnitType @default(DEPARTMENT)
+  costCenter String?
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  parent   OrgUnit?  @relation("OrgTree", fields: [parentId], references: [id])
+  children OrgUnit[] @relation("OrgTree")
+  users    User[]
+
+  @@index([tenantId, parentId])
+  @@map("org_units")
+}
+
+enum OrgUnitType {
+  ENTERPRISE
+  BUSINESS_UNIT
+  DEPARTMENT
+  TEAM
+  COST_CENTER
+}
+
+// ---------------------------------------------------------------------------
+// Strategy: perspectives (Balanced Scorecard) → objectives → outcomes
+// ---------------------------------------------------------------------------
+
+model Perspective {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String // Financial, Customer, Internal Process, Learning & Growth
+  order    Int    @default(0)
+  color    String?
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  objectives Objective[]
+
+  @@map("perspectives")
+}
+
+model Objective {
+  id            String   @id @default(cuid())
+  tenantId      String
+  perspectiveId String?
+  parentId      String? // strategy cascading / OKR alignment
+  title         String
+  description   String?
+  type          ObjectiveType @default(STRATEGIC)
+  ownerId       String?
+  weight        Float    @default(1)
+  status        RagStatus @default(ON_TRACK)
+  progress      Float    @default(0) // 0..100
+  startDate     DateTime?
+  dueDate       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  perspective Perspective? @relation(fields: [perspectiveId], references: [id])
+  parent      Objective?   @relation("ObjectiveTree", fields: [parentId], references: [id])
+  children    Objective[]  @relation("ObjectiveTree")
+  keyResults  KeyResult[]
+  kpiLinks    KpiObjective[]
+
+  @@index([tenantId, status])
+  @@map("objectives")
+}
+
+enum ObjectiveType {
+  STRATEGIC // long-range strategic objective
+  OKR       // quarterly objective (key results attached)
+  GOAL      // departmental / individual goal
+}
+
+model KeyResult {
+  id          String @id @default(cuid())
+  objectiveId String
+  title       String
+  startValue  Float  @default(0)
+  targetValue Float
+  currentValue Float @default(0)
+  unit        String?
+  progress    Float  @default(0)
+
+  objective Objective @relation(fields: [objectiveId], references: [id])
+
+  @@map("key_results")
+}
+
+// ---------------------------------------------------------------------------
+// KPI management
+// ---------------------------------------------------------------------------
+
+model Kpi {
+  id           String   @id @default(cuid())
+  tenantId     String
+  code         String
+  name         String
+  description  String?
+  category     KpiCategory @default(OPERATIONAL)
+  unit         String? // %, days, $, count
+  direction    KpiDirection @default(HIGHER_IS_BETTER)
+  frequency    Cadence  @default(MONTHLY)
+  ownerId      String?
+  orgUnitId    String?
+  weight       Float    @default(1)
+  target       Float?
+  // RAG thresholds: green >= thresholdGreen, red <= thresholdRed
+  thresholdGreen Float?
+  thresholdRed   Float?
+  status       KpiStatus @default(DRAFT)
+  formula      String? // expression for calculated KPIs
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  owner        User?          @relation("KpiOwner", fields: [ownerId], references: [id])
+  measurements KpiMeasurement[]
+  objectives   KpiObjective[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, category, status])
+  @@map("kpis")
+}
+
+enum KpiCategory {
+  STRATEGIC
+  ENTERPRISE
+  OPERATIONAL
+  DEPARTMENT
+  INDIVIDUAL
+}
+
+enum KpiDirection {
+  HIGHER_IS_BETTER
+  LOWER_IS_BETTER
+  TARGET_IS_BEST
+}
+
+enum KpiStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  ARCHIVED
+}
+
+// Historical time series — the source of trends, forecasts and RAG.
+model KpiMeasurement {
+  id        String   @id @default(cuid())
+  kpiId     String
+  periodStart DateTime
+  periodEnd   DateTime
+  actual    Float
+  target    Float?
+  note      String?
+  createdAt DateTime @default(now())
+
+  kpi Kpi @relation(fields: [kpiId], references: [id])
+
+  @@unique([kpiId, periodStart])
+  @@index([kpiId, periodStart])
+  @@map("kpi_measurements")
+}
+
+// Many-to-many: which KPIs measure which objectives (strategy map linkage).
+model KpiObjective {
+  kpiId       String
+  objectiveId String
+  weight      Float @default(1)
+
+  kpi       Kpi       @relation(fields: [kpiId], references: [id])
+  objective Objective @relation(fields: [objectiveId], references: [id])
+
+  @@id([kpiId, objectiveId])
+  @@map("kpi_objectives")
+}
+
+// ---------------------------------------------------------------------------
+// Risk / KRI management
+// ---------------------------------------------------------------------------
+
+model Risk {
+  id           String   @id @default(cuid())
+  tenantId     String
+  code         String
+  title        String
+  description  String?
+  category     String?
+  ownerId      String?
+  likelihood   Int      @default(1) // 1..5
+  impact       Int      @default(1) // 1..5
+  inherentScore Int?
+  residualScore Int?
+  appetite     Int? // tolerance threshold
+  status       RiskStatus @default(OPEN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  owner       User?    @relation("RiskOwner", fields: [ownerId], references: [id])
+  indicators  Kri[]
+  mitigations Mitigation[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("risks")
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATING
+  MONITORED
+  CLOSED
+  ESCALATED
+}
+
+// Key Risk Indicator: a measurable leading signal attached to a risk.
+model Kri {
+  id         String @id @default(cuid())
+  riskId     String
+  name       String
+  unit       String?
+  threshold  Float? // breach => alert
+  current    Float?
+  breached   Boolean @default(false)
+
+  risk Risk @relation(fields: [riskId], references: [id])
+
+  @@map("kris")
+}
+
+model Mitigation {
+  id        String   @id @default(cuid())
+  riskId    String
+  action    String
+  ownerId   String?
+  dueDate   DateTime?
+  status    RagStatus @default(ON_TRACK)
+
+  risk Risk @relation(fields: [riskId], references: [id])
+
+  @@map("mitigations")
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio, initiatives & projects
+// ---------------------------------------------------------------------------
+
+model Portfolio {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+  type     PortfolioType @default(STRATEGIC)
+  budget   Float  @default(0)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  initiatives Initiative[]
+  projects    Project[]
+
+  @@map("portfolios")
+}
+
+enum PortfolioType {
+  STRATEGIC
+  PROJECT
+  APPLICATION
+  TECHNOLOGY
+  INVESTMENT
+  DEMAND
+}
+
+model Initiative {
+  id            String   @id @default(cuid())
+  tenantId      String
+  portfolioId   String?
+  title         String
+  businessCase  String?
+  strategicValue Float   @default(0) // 0..10 (portfolio matrix Y)
+  executionRisk Float    @default(0) // 0..10 (portfolio matrix X)
+  budget        Float    @default(0)
+  benefit       Float    @default(0)
+  progress      Float    @default(0)
+  status        RagStatus @default(ON_TRACK)
+  startDate     DateTime?
+  dueDate       DateTime?
+  createdAt     DateTime @default(now())
+  deletedAt     DateTime?
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id])
+  milestones Milestone[]
+
+  @@index([tenantId, status])
+  @@map("initiatives")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  tenantId    String
+  portfolioId String?
+  code        String
+  name        String
+  managerId   String?
+  phase       ProjectPhase @default(INITIATION)
+  health      RagStatus @default(ON_TRACK)
+  progress    Float    @default(0)
+  budget      Float    @default(0)
+  actualCost  Float    @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  portfolio  Portfolio?  @relation(fields: [portfolioId], references: [id])
+  milestones Milestone[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, health])
+  @@map("projects")
+}
+
+enum ProjectPhase {
+  INITIATION
+  PLANNING
+  DESIGN
+  EXECUTION
+  BUILD
+  TESTING
+  CLOSURE
+}
+
+model Milestone {
+  id           String   @id @default(cuid())
+  projectId    String?
+  initiativeId String?
+  title        String
+  dueDate      DateTime?
+  completed    Boolean  @default(false)
+
+  project    Project?    @relation(fields: [projectId], references: [id])
+  initiative Initiative? @relation(fields: [initiativeId], references: [id])
+
+  @@map("milestones")
+}
+
+// ---------------------------------------------------------------------------
+// AI provider configuration (admin-editable, per tenant)
+// ---------------------------------------------------------------------------
+
+model AiProviderConfig {
+  id            String  @id @default(cuid())
+  tenantId      String
+  provider      String // anthropic | openai | gemini | ollama | azure-openai | aws-bedrock
+  enabled       Boolean @default(false)
+  priority      Int     @default(100)
+  // Secrets are stored encrypted (KMS/Vault); never plaintext in the DB.
+  apiKeyRef     String?
+  baseUrl       String?
+  deployment    String?
+  defaultModel  String
+  fallbackModels String[]
+  embeddingModel String?
+  rateLimitRpm  Int?
+  options       Json?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, provider])
+  @@map("ai_provider_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Cross-cutting: audit trail
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  actorId    String?
+  action     String // e.g. "kpi.update", "risk.escalate"
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Shared enums
+// ---------------------------------------------------------------------------
+
+enum RagStatus {
+  ON_TRACK // green
+  AT_RISK // amber
+  OFF_TRACK // red
+  NOT_STARTED
+  COMPLETED
+}
+
+enum Cadence {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
