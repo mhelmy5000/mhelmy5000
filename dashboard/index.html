@@ -93,7 +93,9 @@
     70%  { box-shadow: 0 0 0 6px rgba(12,163,12,0); }
     100% { box-shadow: 0 0 0 0 rgba(12,163,12,0); }
   }
+  .live-dot.paused { animation: none; background: var(--muted); box-shadow: none; }
   .controls { display: flex; gap: 8px; align-items: center; }
+  .icon-btn[aria-pressed="false"] { color: var(--muted); }
   .seg {
     display: inline-flex; background: var(--surface-1); border: 1px solid var(--border);
     border-radius: 10px; padding: 3px; box-shadow: var(--shadow);
@@ -109,6 +111,34 @@
     width: 38px; height: 38px; border-radius: 10px; cursor: pointer;
     font-size: 16px; box-shadow: var(--shadow); display: grid; place-items: center;
   }
+
+  /* ---- Alerts ---- */
+  .alerts { padding: 12px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .alerts-head {
+    display: flex; align-items: center; gap: 8px; font-size: 12.5px;
+    font-weight: 650; color: var(--text-1);
+  }
+  .alerts-head .count {
+    background: var(--critical); color: #fff; font-size: 11px; font-weight: 700;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+    display: inline-grid; place-items: center;
+  }
+  .alert {
+    display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px;
+    border-radius: 9px; border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 60%, transparent);
+  }
+  .alert .sev {
+    width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: 0 0 auto;
+  }
+  .alert.critical { border-left: 3px solid var(--critical); }
+  .alert.critical .sev { background: var(--critical); }
+  .alert.warning  { border-left: 3px solid var(--warning); }
+  .alert.warning  .sev { background: var(--warning); }
+  .alert .a-body { flex: 1; min-width: 0; }
+  .alert .a-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
+  .alert .a-desc { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+  .alert .a-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
   /* ---- Grid & cards ---- */
   .card {
@@ -209,7 +239,7 @@
   <header class="top">
     <div class="title">
       <h1>KPI Monitoring Dashboard</h1>
-      <p><span class="live"><span class="live-dot"></span>All systems operational</span>
+      <p><span class="live" id="sysStatus"><span class="live-dot" id="liveDot"></span>All systems operational</span>
          &nbsp;·&nbsp; Last updated <span id="updated">just now</span></p>
     </div>
     <div class="controls">
@@ -218,9 +248,14 @@
         <button data-range="7d"  aria-pressed="false">7d</button>
         <button data-range="30d" aria-pressed="false">30d</button>
       </div>
+      <button class="icon-btn" id="liveToggle" title="Pause live updates" aria-label="Pause live updates" aria-pressed="true">⏸</button>
+      <button class="icon-btn" id="exportBtn" title="Export current range as CSV" aria-label="Export CSV">⭳</button>
       <button class="icon-btn" id="themeToggle" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
     </div>
   </header>
+
+  <!-- Active alerts -->
+  <section class="alerts card" id="alerts" hidden aria-live="polite"></section>
 
   <!-- KPI stat tiles -->
   <section class="kpis" id="kpis"></section>
@@ -641,11 +676,12 @@ function renderErrRate() {
 function renderMeters() {
   const host = document.getElementById("meters");
   const bump = current === "24h" ? 0 : current === "7d" ? 4 : 7;
+  const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
   const rows = [
-    { label: "CPU",     pct: 58 + bump },
-    { label: "Memory",  pct: 71 + bump },
-    { label: "Disk",    pct: 44 + Math.round(bump/2) },
-    { label: "Network", pct: 33 + bump },
+    { label: "CPU",     pct: clamp(58 + bump + meterJitter.CPU) },
+    { label: "Memory",  pct: clamp(71 + bump + meterJitter.Memory) },
+    { label: "Disk",    pct: clamp(44 + Math.round(bump/2) + meterJitter.Disk) },
+    { label: "Network", pct: clamp(33 + bump + meterJitter.Network) },
   ];
   const sev = (p) => p >= 85 ? cssVar("--critical") : p >= 70 ? cssVar("--warning") : cssVar("--series-1");
   host.innerHTML = rows.map(r => `
@@ -661,16 +697,17 @@ function renderMeters() {
 /* ============================================================
    Service status table
    ============================================================ */
+const SERVICE_STATUS = [
+  { svc: "api-gateway",   status: "op",  uptime: 99.98, p95: 182, err: 0.42, rpm: 4820 },
+  { svc: "auth-service",  status: "op",  uptime: 99.95, p95: 96,  err: 0.18, rpm: 2140 },
+  { svc: "payments",      status: "deg", uptime: 99.71, p95: 341, err: 1.24, rpm: 880 },
+  { svc: "search",        status: "op",  uptime: 99.99, p95: 128, err: 0.09, rpm: 3160 },
+  { svc: "notifications", status: "op",  uptime: 99.97, p95: 74,  err: 0.11, rpm: 1520 },
+  { svc: "media-worker",  status: "out", uptime: 97.40, p95: 0,   err: 8.90, rpm: 0 },
+];
+
 function renderTable() {
-  const scale = current === "24h" ? 1 : current === "7d" ? 6.4 : 27;
-  const rows = [
-    { svc: "api-gateway",   status: "op",  uptime: 99.98, p95: 182, err: 0.42, rpm: 4820 },
-    { svc: "auth-service",  status: "op",  uptime: 99.95, p95: 96,  err: 0.18, rpm: 2140 },
-    { svc: "payments",      status: "deg", uptime: 99.71, p95: 341, err: 1.24, rpm: 880 },
-    { svc: "search",        status: "op",  uptime: 99.99, p95: 128, err: 0.09, rpm: 3160 },
-    { svc: "notifications", status: "op",  uptime: 99.97, p95: 74,  err: 0.11, rpm: 1520 },
-    { svc: "media-worker",  status: "out", uptime: 97.40, p95: 0,   err: 8.90, rpm: 0 },
-  ];
+  const rows = SERVICE_STATUS;
   const map = { op: ["op", "Operational"], deg: ["deg", "Degraded"], out: ["out", "Outage"] };
   document.getElementById("svcBody").innerHTML = rows.map(r => {
     const [cls, txt] = map[r.status];
@@ -687,6 +724,141 @@ function renderTable() {
 }
 
 /* ============================================================
+   Active alerts — derived from service health + live thresholds
+   ============================================================ */
+const P95_ALERT_MS = 300;     // latency SLO breach
+const ERR_ALERT_PCT = 2.0;    // error-rate SLO breach
+
+function computeAlerts() {
+  const alerts = [];
+  // Service-level incidents from the status table
+  for (const s of SERVICE_STATUS) {
+    if (s.status === "out") {
+      alerts.push({ sev: "critical", title: `${s.svc} is down`,
+        desc: `Outage detected · uptime ${s.uptime.toFixed(2)}% · no traffic served` });
+    } else if (s.status === "deg") {
+      alerts.push({ sev: "warning", title: `${s.svc} degraded`,
+        desc: `Elevated latency (p95 ${fmt(s.p95)} ms) and error rate ${s.err.toFixed(2)}%` });
+    } else if (s.err >= ERR_ALERT_PCT) {
+      alerts.push({ sev: "warning", title: `${s.svc} error budget at risk`,
+        desc: `Error rate ${s.err.toFixed(2)}% exceeds ${ERR_ALERT_PCT}% target` });
+    }
+  }
+  // Cluster-wide breach on the latest bucket of the active range
+  const last = RANGES[current][RANGES[current].length - 1];
+  if (last.errRate >= ERR_ALERT_PCT) {
+    alerts.push({ sev: "warning", title: "Cluster error rate spike",
+      desc: `Current error rate ${last.errRate.toFixed(2)}% is above the ${ERR_ALERT_PCT}% threshold` });
+  }
+  if (last.p95 >= P95_ALERT_MS) {
+    alerts.push({ sev: "warning", title: "Latency SLO breach",
+      desc: `Current p95 ${fmt(last.p95)} ms exceeds the ${P95_ALERT_MS} ms budget` });
+  }
+  // Surface criticals first
+  return alerts.sort((a, b) => (a.sev === "critical" ? 0 : 1) - (b.sev === "critical" ? 0 : 1));
+}
+
+function updateSystemStatus(alerts) {
+  const status = document.getElementById("sysStatus");
+  const dot = document.getElementById("liveDot");
+  const crit = alerts.some(a => a.sev === "critical");
+  const label = crit ? "Service outage detected"
+    : alerts.length ? `${alerts.length} active alert${alerts.length > 1 ? "s" : ""}`
+    : "All systems operational";
+  const color = crit ? cssVar("--critical")
+    : alerts.length ? cssVar("--serious") : cssVar("--good-text");
+  status.lastChild.textContent = label;
+  status.style.color = color;
+  // Live dot: grey + static when paused, otherwise pulses in the status color.
+  if (live) {
+    dot.classList.remove("paused");
+    dot.style.background = crit ? cssVar("--critical")
+      : alerts.length ? cssVar("--warning") : cssVar("--good");
+  } else {
+    dot.classList.add("paused");
+    dot.style.background = "";
+  }
+}
+
+function renderAlerts() {
+  const host = document.getElementById("alerts");
+  const alerts = computeAlerts();
+  updateSystemStatus(alerts);
+  if (!alerts.length) { host.hidden = true; host.innerHTML = ""; return; }
+  host.hidden = false;
+  const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  host.innerHTML = `
+    <div class="alerts-head">
+      <span class="count">${alerts.length}</span> Active alert${alerts.length > 1 ? "s" : ""}
+    </div>` + alerts.map(a => `
+    <div class="alert ${a.sev}">
+      <span class="sev"></span>
+      <div class="a-body">
+        <div class="a-title">${a.title}</div>
+        <div class="a-desc">${a.desc}</div>
+      </div>
+      <div class="a-time">${time}</div>
+    </div>`).join("");
+}
+
+/* ============================================================
+   Export current range as CSV
+   ============================================================ */
+function exportCsv() {
+  const pts = RANGES[current];
+  const header = ["interval", "p50_ms", "p95_ms", "requests", "error_rate_pct", "errors"];
+  const lines = [header.join(",")].concat(pts.map(p =>
+    [p.label, p.p50.toFixed(1), p.p95.toFixed(1), p.req, p.errRate.toFixed(2), p.errors].join(",")));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `kpi-metrics-${current}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   Live streaming — random-walk the latest bucket + resource meters
+   ============================================================ */
+let live = true, liveTimer = null;
+const meterJitter = { CPU: 0, Memory: 0, Disk: 0, Network: 0 };
+
+function walk(base, pct) {
+  const next = base + (Math.random() - 0.5) * base * pct;
+  return Math.max(0, next);
+}
+
+function liveMutate() {
+  // Nudge the most recent bucket of every range so switching stays live.
+  for (const key in RANGES) {
+    const pts = RANGES[key];
+    const last = pts[pts.length - 1];
+    last.p50 = walk(last.p50, 0.07);
+    last.p95 = Math.max(last.p50 * 1.4, walk(last.p95, 0.07));
+    last.req = Math.round(walk(last.req, 0.05));
+    last.errRate = Math.max(0.02, walk(last.errRate, 0.14));
+    last.errors = Math.round(last.req * last.errRate / 100);
+  }
+  // Bounded random walk for the resource meters.
+  for (const k in meterJitter) {
+    meterJitter[k] = Math.max(-6, Math.min(6, meterJitter[k] + (Math.random() - 0.5) * 3));
+  }
+}
+
+function startLive() {
+  live = true;
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = setInterval(() => { liveMutate(); renderAll(); }, 3000);
+}
+function stopLive() {
+  live = false;
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+}
+
+/* ============================================================
    Orchestration
    ============================================================ */
 function renderAll() {
@@ -697,6 +869,7 @@ function renderAll() {
   renderErrRate();
   renderMeters();
   renderTable();
+  renderAlerts();
 }
 
 // Time-range switch
@@ -720,6 +893,28 @@ themeBtn.addEventListener("click", () => {
   renderAll(); // recolor SVGs from fresh CSS vars
 });
 
+// Live pause / resume
+const liveBtn = document.getElementById("liveToggle");
+liveBtn.addEventListener("click", () => {
+  if (live) {
+    stopLive();
+    liveBtn.textContent = "▶";
+    liveBtn.title = "Resume live updates";
+    liveBtn.setAttribute("aria-label", "Resume live updates");
+    liveBtn.setAttribute("aria-pressed", "false");
+  } else {
+    startLive();
+    liveBtn.textContent = "⏸";
+    liveBtn.title = "Pause live updates";
+    liveBtn.setAttribute("aria-label", "Pause live updates");
+    liveBtn.setAttribute("aria-pressed", "true");
+  }
+  renderAlerts(); // refresh the live-dot state immediately
+});
+
+// Export current range as CSV
+document.getElementById("exportBtn").addEventListener("click", exportCsv);
+
 // "Last updated" ticker
 function tickUpdated() {
   const now = new Date();
@@ -734,6 +929,7 @@ let rz;
 window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderAll, 150); });
 
 renderAll();
+startLive();
 </script>
 </body>
 </html>

@@ -16,9 +16,11 @@ external dependencies, so it works offline.
   `python3 -m http.server` and browse to `/dashboard/`. If GitHub Pages is
   enabled for this repo, it is available at `/dashboard/`.
 
-Features: light/dark theme toggle, 24h/7d/30d time ranges, interactive
-crosshair and hover tooltips, and an accessible color palette that stays
-colorblind-safe in both themes.
+Features: live streaming updates (with a pause/resume control), an active
+alerts panel derived from service health and latency/error-rate SLO
+thresholds, one-click CSV export of the selected range, light/dark theme
+toggle, 24h/7d/30d time ranges, interactive crosshair and hover tooltips,
+and an accessible color palette that stays colorblind-safe in both themes.
 
 ## 🏛️ Mizan EPM — Enterprise Performance Management platform
 
