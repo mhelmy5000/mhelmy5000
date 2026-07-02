@@ -1,8 +1,8 @@
 - 👋 Hi, I’m @MohamedHelmy
-- 👀 I’m interested in System administration
+- 👀 I’m interested in Enterprise Architecture 
 - 🌱 I’m currently learning LeaderShip
 - 💞️ I’m looking to collaborate on with any one
-- 📫 How to reach me anyone
+
 
 <!---
 mhelmy5000/mhelmy5000 is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
