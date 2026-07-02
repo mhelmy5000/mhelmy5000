@@ -8,7 +8,7 @@ export class RiskRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findMany(tenantId: string, where: Prisma.RiskWhereInput) {
-    return this.prisma.risk.findMany({
+    return this.prisma.db.risk.findMany({
       where: { tenantId, deletedAt: null, ...where },
       include: { owner: true, indicators: true, mitigations: true },
       orderBy: [{ likelihood: 'desc' }, { impact: 'desc' }],
@@ -16,22 +16,22 @@ export class RiskRepository {
   }
 
   findOne(tenantId: string, id: string) {
-    return this.prisma.risk.findFirst({
+    return this.prisma.db.risk.findFirst({
       where: { tenantId, id, deletedAt: null },
       include: { owner: true, indicators: true, mitigations: true },
     });
   }
 
   create(tenantId: string, data: Prisma.RiskCreateInput) {
-    return this.prisma.risk.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
+    return this.prisma.db.risk.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 
   update(tenantId: string, id: string, data: Prisma.RiskUpdateInput) {
-    return this.prisma.risk.updateMany({ where: { tenantId, id, deletedAt: null }, data });
+    return this.prisma.db.risk.updateMany({ where: { tenantId, id, deletedAt: null }, data });
   }
 
   softDelete(tenantId: string, id: string) {
-    return this.prisma.risk.updateMany({
+    return this.prisma.db.risk.updateMany({
       where: { tenantId, id, deletedAt: null },
       data: { deletedAt: new Date(), status: 'CLOSED' },
     });

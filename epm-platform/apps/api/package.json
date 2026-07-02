@@ -12,6 +12,9 @@
     "test": "vitest run",
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema ../../prisma/schema.prisma",
+    "db:migrate:raw": "psql \"$DATABASE_URL\" -f ../../prisma/migrations/0001_init/migration.sql",
+    "db:rls": "psql \"$DATABASE_URL\" -f ../../infra/postgres/rls.sql",
+    "db:verify-rls": "bash ../../infra/postgres/verify-rls.sh",
     "seed": "ts-node prisma/seed.ts",
     "dev:reference": "node dev-server.mjs"
   },

@@ -39,8 +39,13 @@ verifiable rather than a wall of stubs.
   objective scoring & status, Balanced-Scorecard rollups (objective → perspective
   → strategy) — via `@mizan/domain`. Prototype Strategy Map + OKR views read live
   data. (Domain now **78 unit tests** total.)
-- 🔨 Prisma migrations + Postgres RLS policies; wire the full NestJS app against
-  a live database (needs `pnpm install` — deps unavailable in the CI sandbox).
+- ✅ **Database migration + Row-Level Security**: full DDL (20 tables) in
+  `prisma/migrations/0001_init`, forced RLS policies in `infra/postgres/rls.sql`,
+  wired into NestJS via a tenant-context interceptor + Prisma RLS extension
+  (`set_config('app.tenant_id', …)`). **Verified on real Postgres 16** —
+  isolation + cross-tenant write-block asserted by `infra/postgres/verify-rls.sh`.
+- 🔨 Wire the full NestJS app process against the live DB (needs `pnpm install`
+  — deps unavailable in the CI sandbox); connect as `mizan_app`/`mizan_system`.
 - 🔨 Transactional outbox on RabbitMQ; audit + notifications.
 - 🔨 GraphQL resolvers alongside REST; integration tests.
 

@@ -12,6 +12,11 @@ export interface LoginResult {
  * Resolves an identity to a signed JWT carrying the user's tenant, roles,
  * flattened permissions and ABAC org-unit scopes — so downstream guards need no
  * further DB lookups on the hot path.
+ *
+ * NOTE: login runs *before* a tenant context exists, so the user/tenant lookup
+ * below uses the base client (`prisma`, not `prisma.db`) on the `mizan_system`
+ * (BYPASSRLS) connection — see infra/postgres/README.md. All post-auth,
+ * tenant-scoped traffic goes through `prisma.db` (RLS-enforced).
  */
 @Injectable()
 export class AuthService {

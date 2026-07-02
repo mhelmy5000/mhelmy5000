@@ -8,7 +8,7 @@ export class StrategyRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   perspectivesWithObjectives(tenantId: string) {
-    return this.prisma.perspective.findMany({
+    return this.prisma.db.perspective.findMany({
       where: { tenantId },
       orderBy: { order: 'asc' },
       include: {
@@ -21,7 +21,7 @@ export class StrategyRepository {
   }
 
   objectives(tenantId: string, where: Prisma.ObjectiveWhereInput) {
-    return this.prisma.objective.findMany({
+    return this.prisma.db.objective.findMany({
       where: { tenantId, deletedAt: null, ...where },
       include: { keyResults: true },
       orderBy: { createdAt: 'asc' },
@@ -29,20 +29,20 @@ export class StrategyRepository {
   }
 
   createObjective(tenantId: string, data: Prisma.ObjectiveCreateInput) {
-    return this.prisma.objective.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
+    return this.prisma.db.objective.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 
   updateObjective(tenantId: string, id: string, data: Prisma.ObjectiveUpdateInput) {
-    return this.prisma.objective.updateMany({ where: { tenantId, id, deletedAt: null }, data });
+    return this.prisma.db.objective.updateMany({ where: { tenantId, id, deletedAt: null }, data });
   }
 
   findKeyResult(tenantId: string, objectiveId: string, krId: string) {
-    return this.prisma.keyResult.findFirst({
+    return this.prisma.db.keyResult.findFirst({
       where: { id: krId, objectiveId, objective: { tenantId, deletedAt: null } },
     });
   }
 
   updateKeyResult(id: string, data: Prisma.KeyResultUpdateInput) {
-    return this.prisma.keyResult.update({ where: { id }, data });
+    return this.prisma.db.keyResult.update({ where: { id }, data });
   }
 }

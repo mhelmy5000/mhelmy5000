@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { configuration } from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
@@ -11,6 +11,7 @@ import { PortfolioModule } from './modules/portfolio/portfolio.module';
 import { AiModule } from './modules/ai/ai.module';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
+import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 
 @Module({
   imports: [
@@ -27,6 +28,8 @@ import { PermissionsGuard } from './common/auth/permissions.guard';
     // Secure by default: JWT required everywhere except @Public(), then RBAC.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Bind the tenant to the async context so Prisma RLS sets app.tenant_id.
+    { provide: APP_INTERCEPTOR, useClass: TenantInterceptor },
   ],
 })
 export class AppModule {}

@@ -8,19 +8,19 @@ export class PortfolioRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findMany(tenantId: string, where: Prisma.InitiativeWhereInput = {}) {
-    return this.prisma.initiative.findMany({
+    return this.prisma.db.initiative.findMany({
       where: { tenantId, deletedAt: null, ...where },
       orderBy: { strategicValue: 'desc' },
     });
   }
 
   create(tenantId: string, data: Prisma.InitiativeCreateInput) {
-    return this.prisma.initiative.create({
+    return this.prisma.db.initiative.create({
       data: { ...data, tenant: { connect: { id: tenantId } } },
     });
   }
 
   update(tenantId: string, id: string, data: Prisma.InitiativeUpdateInput) {
-    return this.prisma.initiative.updateMany({ where: { tenantId, id, deletedAt: null }, data });
+    return this.prisma.db.initiative.updateMany({ where: { tenantId, id, deletedAt: null }, data });
   }
 }

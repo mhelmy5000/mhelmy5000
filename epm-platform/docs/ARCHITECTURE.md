@@ -110,8 +110,10 @@ See [`prisma/schema.prisma`](../prisma/schema.prisma) and
 | Premium UX prototype (7 modules, shell, command palette, dark/light, RTL) | ✅ working, verified in-browser (`prototype/index.html`) |
 | AI abstraction layer (router, 5 adapters, RAG, prompts, insight service) | ✅ implemented + typechecks strict (`packages/ai-core`) |
 | Prisma schema (core domains, multi-tenant, RBAC, audit) | ✅ authored (`prisma/schema.prisma`) |
+| SQL migration (20 tables) + **forced Row-Level Security** | ✅ verified on real Postgres 16 (`infra/postgres/verify-rls.sh`) |
+| NestJS API (IAM + KPI/Strategy/Risk/Portfolio + AI) + tenant-context RLS wiring | ✅ authored, typed; runs once deps installed |
 | Local infra (Postgres+pgvector, Redis, RabbitMQ, Ollama) | ✅ `infra/docker-compose.yml` |
-| NestJS API, Next.js app, tests, k8s/helm, CI | ⏳ scaffolding — see [ROADMAP](./ROADMAP.md) |
+| Next.js app, integration/e2e tests, k8s/helm, CI | ⏳ see [ROADMAP](./ROADMAP.md) |
 
 This is an honest foundation, not a finished product. The roadmap sequences the
 remaining build.
