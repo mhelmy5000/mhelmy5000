@@ -199,6 +199,42 @@
   .status.out { color: var(--critical); }
   .status.out .badge { background: var(--critical); }
 
+  /* ---- Sortable headers ---- */
+  thead th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  thead th.sortable:hover { color: var(--text-2); }
+  thead th.sortable .caret { opacity: 0; margin-left: 4px; font-size: 10px; }
+  thead th.sortable[aria-sort] { color: var(--text-1); }
+  thead th.sortable[aria-sort] .caret { opacity: 1; }
+
+  /* ---- Alerts ---- */
+  .alert-count {
+    font-size: 11.5px; font-weight: 700; color: #fff; background: var(--muted);
+    border-radius: 999px; padding: 2px 9px; letter-spacing: 0;
+  }
+  .alert-count.has { background: var(--critical); }
+  .alerts { list-style: none; margin: 4px 0 0; padding: 0; }
+  .alerts li {
+    display: flex; align-items: flex-start; gap: 12px; padding: 12px 4px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .alerts li:last-child { border-bottom: 0; }
+  .alerts .sev {
+    flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 4px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent);
+  }
+  .alerts .sev.critical { background: var(--critical); color: var(--critical); }
+  .alerts .sev.serious  { background: var(--serious);  color: var(--serious); }
+  .alerts .sev.warning  { background: var(--warning);  color: var(--warning); }
+  .alerts .a-body { flex: 1; min-width: 0; }
+  .alerts .a-title { font-size: 13.5px; font-weight: 650; color: var(--text-1); }
+  .alerts .a-title .svc-tag {
+    font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--page);
+    border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; margin-left: 8px;
+  }
+  .alerts .a-detail { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+  .alerts .a-time { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .alerts .empty { color: var(--good-text); font-weight: 600; padding: 10px 4px; }
+
   footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 28px; }
   a { color: var(--series-1); }
 </style>
@@ -218,6 +254,7 @@
         <button data-range="7d"  aria-pressed="false">7d</button>
         <button data-range="30d" aria-pressed="false">30d</button>
       </div>
+      <button class="icon-btn" id="liveToggle" title="Pause live updates" aria-label="Pause live updates" aria-pressed="true">⏸</button>
       <button class="icon-btn" id="themeToggle" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
     </div>
   </header>
@@ -262,16 +299,26 @@
     </div>
   </section>
 
+  <!-- Active alerts -->
+  <section class="card" style="margin-bottom:16px">
+    <h2>Active alerts <span class="alert-count" id="alertCount"></span></h2>
+    <p class="sub">Threshold breaches and open incidents, most severe first</p>
+    <ul class="alerts" id="alertsList"></ul>
+  </section>
+
   <!-- Service status -->
   <section class="card">
     <h2>Service status</h2>
-    <p class="sub">Health, latency and error budget by service</p>
+    <p class="sub">Health, latency and error budget by service · click a column to sort</p>
     <table>
       <thead>
         <tr>
-          <th>Service</th><th>Status</th>
-          <th class="num">Uptime</th><th class="num">p95 latency</th>
-          <th class="num">Error rate</th><th class="num">Req/min</th>
+          <th class="sortable" data-sort="svc">Service</th>
+          <th class="sortable" data-sort="status">Status</th>
+          <th class="num sortable" data-sort="uptime">Uptime</th>
+          <th class="num sortable" data-sort="p95">p95 latency</th>
+          <th class="num sortable" data-sort="err">Error rate</th>
+          <th class="num sortable" data-sort="rpm">Req/min</th>
         </tr>
       </thead>
       <tbody id="svcBody"></tbody>
@@ -333,7 +380,9 @@ let current = "24h";
 
 /* ---- Tooltip ---- */
 const tip = document.getElementById("tooltip");
+let hovering = false; // pause live re-renders while inspecting a chart
 function showTip(html, evt) {
+  hovering = true;
   tip.innerHTML = html;
   tip.style.opacity = "1";
   const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
@@ -343,7 +392,7 @@ function showTip(html, evt) {
   tip.style.left = x + "px";
   tip.style.top = y + "px";
 }
-const hideTip = () => { tip.style.opacity = "0"; };
+const hideTip = () => { hovering = false; tip.style.opacity = "0"; };
 
 /* ============================================================
    KPI stat tiles (with sparklines)
@@ -659,21 +708,34 @@ function renderMeters() {
 }
 
 /* ============================================================
-   Service status table
+   Service status table (sortable) + derived alerts
    ============================================================ */
+const SVC_STATUS = [
+  { svc: "api-gateway",   status: "op",  uptime: 99.98, p95: 182, err: 0.42, rpm: 4820 },
+  { svc: "auth-service",  status: "op",  uptime: 99.95, p95: 96,  err: 0.18, rpm: 2140 },
+  { svc: "payments",      status: "deg", uptime: 99.71, p95: 341, err: 1.24, rpm: 880 },
+  { svc: "search",        status: "op",  uptime: 99.99, p95: 128, err: 0.09, rpm: 3160 },
+  { svc: "notifications", status: "op",  uptime: 99.97, p95: 74,  err: 0.11, rpm: 1520 },
+  { svc: "media-worker",  status: "out", uptime: 97.40, p95: 0,   err: 8.90, rpm: 0 },
+];
+const STATUS_MAP = { op: ["op", "Operational"], deg: ["deg", "Degraded"], out: ["out", "Outage"] };
+// health ordering so "worst first" sorts intuitively
+const STATUS_RANK = { out: 0, deg: 1, op: 2 };
+let sortKey = null, sortDir = 1; // dir: 1 asc, -1 desc
+
+function sortedStatus() {
+  if (!sortKey) return SVC_STATUS;
+  return [...SVC_STATUS].sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (sortKey === "status") { av = STATUS_RANK[a.status]; bv = STATUS_RANK[b.status]; }
+    if (sortKey === "svc") return sortDir * av.localeCompare(bv);
+    return sortDir * (av - bv);
+  });
+}
+
 function renderTable() {
-  const scale = current === "24h" ? 1 : current === "7d" ? 6.4 : 27;
-  const rows = [
-    { svc: "api-gateway",   status: "op",  uptime: 99.98, p95: 182, err: 0.42, rpm: 4820 },
-    { svc: "auth-service",  status: "op",  uptime: 99.95, p95: 96,  err: 0.18, rpm: 2140 },
-    { svc: "payments",      status: "deg", uptime: 99.71, p95: 341, err: 1.24, rpm: 880 },
-    { svc: "search",        status: "op",  uptime: 99.99, p95: 128, err: 0.09, rpm: 3160 },
-    { svc: "notifications", status: "op",  uptime: 99.97, p95: 74,  err: 0.11, rpm: 1520 },
-    { svc: "media-worker",  status: "out", uptime: 97.40, p95: 0,   err: 8.90, rpm: 0 },
-  ];
-  const map = { op: ["op", "Operational"], deg: ["deg", "Degraded"], out: ["out", "Outage"] };
-  document.getElementById("svcBody").innerHTML = rows.map(r => {
-    const [cls, txt] = map[r.status];
+  document.getElementById("svcBody").innerHTML = sortedStatus().map(r => {
+    const [cls, txt] = STATUS_MAP[r.status];
     const p95 = r.p95 ? fmt(r.p95) + " ms" : "—";
     return `<tr>
       <td class="svc">${r.svc}</td>
@@ -684,6 +746,60 @@ function renderTable() {
       <td class="num">${fmt(Math.round(r.rpm))}</td>
     </tr>`;
   }).join("");
+  // reflect sort state in headers
+  document.querySelectorAll("thead th.sortable").forEach(th => {
+    const active = th.dataset.sort === sortKey;
+    if (active) th.setAttribute("aria-sort", sortDir === 1 ? "ascending" : "descending");
+    else th.removeAttribute("aria-sort");
+    const caret = active ? (sortDir === 1 ? " ▲" : " ▼") : "";
+    th.querySelector(".caret").textContent = caret;
+  });
+}
+
+/* ============================================================
+   Active alerts — derived from service thresholds
+   ============================================================ */
+const ALERT_THRESHOLDS = { p95: 300, err: 1.0, uptime: 99.5 };
+function renderAlerts() {
+  const alerts = [];
+  for (const s of SVC_STATUS) {
+    if (s.status === "out") {
+      alerts.push({ sev: "critical", svc: s.svc, order: 0, mins: 6,
+        title: "Service outage", detail: `Health check failing · 0 req/min · uptime ${s.uptime.toFixed(2)}%` });
+      continue;
+    }
+    if (s.err >= ALERT_THRESHOLDS.err)
+      alerts.push({ sev: "serious", svc: s.svc, order: 1, mins: 14,
+        title: "Elevated error rate", detail: `Error rate ${s.err.toFixed(2)}% exceeds ${ALERT_THRESHOLDS.err.toFixed(1)}% SLO` });
+    if (s.p95 >= ALERT_THRESHOLDS.p95)
+      alerts.push({ sev: "serious", svc: s.svc, order: 1, mins: 14,
+        title: "High p95 latency", detail: `p95 ${fmt(s.p95)} ms exceeds ${ALERT_THRESHOLDS.p95} ms budget` });
+    if (s.uptime < ALERT_THRESHOLDS.uptime && s.status !== "out")
+      alerts.push({ sev: "warning", svc: s.svc, order: 2, mins: 41,
+        title: "Uptime below target", detail: `Uptime ${s.uptime.toFixed(2)}% under ${ALERT_THRESHOLDS.uptime}% target` });
+  }
+  const sevRank = { critical: 0, serious: 1, warning: 2 };
+  alerts.sort((a, b) => sevRank[a.sev] - sevRank[b.sev] || a.mins - b.mins);
+
+  const badge = document.getElementById("alertCount");
+  badge.textContent = alerts.length ? `${alerts.length} open` : "0 open";
+  badge.classList.toggle("has", alerts.length > 0);
+
+  const host = document.getElementById("alertsList");
+  if (!alerts.length) {
+    host.innerHTML = `<li class="empty">✓ No active alerts — all metrics within SLO.</li>`;
+    return;
+  }
+  const ago = (m) => m < 60 ? `${m}m ago` : `${Math.floor(m/60)}h ${m%60}m ago`;
+  host.innerHTML = alerts.map(a => `
+    <li>
+      <span class="sev ${a.sev}"></span>
+      <span class="a-body">
+        <span class="a-title">${a.title}<span class="svc-tag">${a.svc}</span></span>
+        <span class="a-detail">${a.detail}</span>
+      </span>
+      <span class="a-time">${ago(a.mins)}</span>
+    </li>`).join("");
 }
 
 /* ============================================================
@@ -696,6 +812,7 @@ function renderAll() {
   renderErrors();
   renderErrRate();
   renderMeters();
+  renderAlerts();
   renderTable();
 }
 
@@ -706,6 +823,19 @@ document.querySelectorAll(".seg button").forEach(btn => {
     btn.setAttribute("aria-pressed", "true");
     current = btn.dataset.range;
     renderAll();
+  });
+});
+
+// Sortable service table — click header to sort, click again to flip direction
+document.querySelectorAll("thead th.sortable").forEach(th => {
+  const caret = document.createElement("span");
+  caret.className = "caret";
+  th.appendChild(caret);
+  th.addEventListener("click", () => {
+    const key = th.dataset.sort;
+    if (sortKey === key) sortDir = -sortDir;
+    else { sortKey = key; sortDir = (key === "svc" || key === "status") ? 1 : -1; }
+    renderTable();
   });
 });
 
@@ -728,6 +858,49 @@ function tickUpdated() {
 }
 tickUpdated();
 setInterval(tickUpdated, 1000);
+
+/* ============================================================
+   Live streaming — roll the 24h window forward one point per tick
+   ============================================================ */
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let live = !reducedMotion;
+const liveRng = makeRng(97);
+let liveT = RANGES["24h"].length;
+
+function advanceLive() {
+  const pts = RANGES["24h"];
+  const wave = Math.sin((liveT / 24) * Math.PI * 2) * 0.5 + 0.5;
+  const load = 0.35 + wave * 0.6;
+  const p50 = 60 + load * 70 + liveRng() * 22;
+  const p95 = p50 * 1.9 + liveRng() * 60;
+  const req = Math.round(1800 + load * 5200 + liveRng() * 900);
+  const errRate = Math.max(0.05, (1 - load) * 0.9 + liveRng() * 0.5 + (liveRng() > 0.93 ? 2.4 : 0));
+  const now = new Date();
+  const label = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+  pts.push({ i: liveT, label, p50, p95, req, errRate, errors: Math.round(req * errRate / 100) });
+  pts.shift();
+  liveT++;
+}
+
+const liveBtn = document.getElementById("liveToggle");
+function setLive(on) {
+  live = on;
+  liveBtn.textContent = on ? "⏸" : "▶";
+  liveBtn.setAttribute("aria-pressed", String(on));
+  const label = on ? "Pause live updates" : "Resume live updates";
+  liveBtn.title = label;
+  liveBtn.setAttribute("aria-label", label);
+  document.querySelector(".live-dot").style.animationPlayState = on ? "running" : "paused";
+}
+liveBtn.addEventListener("click", () => setLive(!live));
+setLive(live);
+
+setInterval(() => {
+  if (!live || document.hidden || hovering) return;
+  advanceLive();
+  // only the 24h view streams new data; other ranges are historical aggregates
+  if (current === "24h") { renderKpis(); renderLatency(); renderThroughput(); renderErrRate(); }
+}, 3000);
 
 // Re-render on resize (debounced) so SVG widths stay correct
 let rz;
