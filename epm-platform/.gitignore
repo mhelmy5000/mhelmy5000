@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+
+# env & secrets
+.env
+.env.local
+*.local
+
+# prisma
+prisma/*.db
+
+# misc
+.DS_Store
+*.log
+coverage/

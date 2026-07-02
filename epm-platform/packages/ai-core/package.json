@@ -1,0 +1,25 @@
+{
+  "name": "@helm/ai-core",
+  "version": "0.1.0",
+  "description": "Provider-agnostic AI abstraction layer for Helm EPM (Claude, OpenAI, Gemini, Ollama, Azure OpenAI, Bedrock) with priority-based fallback, RAG and prompt templates.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
