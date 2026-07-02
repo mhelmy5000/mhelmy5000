@@ -5,6 +5,7 @@ import { configuration } from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { KpiModule } from './modules/kpi/kpi.module';
+import { StrategyModule } from './modules/strategy/strategy.module';
 import { RiskModule } from './modules/risk/risk.module';
 import { PortfolioModule } from './modules/portfolio/portfolio.module';
 import { AiModule } from './modules/ai/ai.module';
@@ -17,6 +18,7 @@ import { PermissionsGuard } from './common/auth/permissions.guard';
     PrismaModule,
     AuthModule,
     KpiModule,
+    StrategyModule,
     RiskModule,
     PortfolioModule,
     AiModule,

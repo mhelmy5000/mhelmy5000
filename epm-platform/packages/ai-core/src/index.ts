@@ -1,5 +1,5 @@
 /**
- * @helm/ai-core — provider-agnostic AI layer for Helm EPM.
+ * @mizan/ai-core — provider-agnostic AI layer for Mizan EPM.
  *
  * Public surface: import the router + insight service and the types; concrete
  * adapters are wired by the router from ProviderConfig, so consumers rarely
@@ -21,7 +21,7 @@ export * from './providers/gemini.adapter';
 import { ProviderConfig } from './types';
 
 /**
- * Default provider configuration for a fresh Helm EPM install. Keys are read
+ * Default provider configuration for a fresh Mizan EPM install. Keys are read
  * from the environment; an administrator can override everything at runtime via
  * the Administration → AI Providers screen (persisted per tenant).
  */

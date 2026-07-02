@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   quadrant, summarize, rankByPriority, valueToRiskRatio,
   type Quadrant, type PortfolioSummary,
-} from '@helm/domain';
+} from '@mizan/domain';
 import { PortfolioRepository } from './portfolio.repository';
 import { AuthUser } from '../../common/auth/auth-user';
 import { CreateInitiativeDto } from './dto/create-initiative.dto';
@@ -26,7 +26,7 @@ export interface PortfolioMatrix {
   priorityOrder: { name: string; score: number; quadrant: Quadrant }[];
 }
 
-/** Portfolio application service — persistence via repository, scoring via @helm/domain. */
+/** Portfolio application service — persistence via repository, scoring via @mizan/domain. */
 @Injectable()
 export class PortfolioService {
   constructor(private readonly repo: PortfolioRepository) {}

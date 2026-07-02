@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Helm EPM — Enterprise Performance Management</title>
+<title>Mizan EPM — Enterprise Performance Management</title>
 <style>
 /* =====================================================================
-   Helm EPM — premium enterprise UI prototype (self-contained)
+   Mizan EPM — premium enterprise UI prototype (self-contained)
    Design system → app shell → module views. No external dependencies.
    ===================================================================== */
 
@@ -282,7 +282,7 @@ td.name{color:var(--ink-1);font-weight:600}
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 20V6l8-3 8 3v14" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 20v-6h6v6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="txt">
-        <div class="name">Helm <span>EPM</span></div>
+        <div class="name">Mizan <span>EPM</span></div>
         <div class="plan">Enterprise · Gov Cloud</div>
       </div>
     </div>
@@ -345,12 +345,12 @@ td.name{color:var(--ink-1);font-weight:600}
 
 <script>
 /* ==========================================================================
-   Helm EPM prototype — client-side app (no framework, no deps)
+   Mizan EPM prototype — client-side app (no framework, no deps)
    ========================================================================== */
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-// Base URL of the Helm EPM API (NestJS in prod; the zero-dep reference server
-// in dev). Override in the console: localStorage.setItem('helm.apiBase', url).
-const API_BASE=localStorage.getItem('helm.apiBase')||'http://localhost:3001/api';
+// Base URL of the Mizan EPM API (NestJS in prod; the zero-dep reference server
+// in dev). Override in the console: localStorage.setItem('mizan.apiBase', url).
+const API_BASE=localStorage.getItem('mizan.apiBase')||'http://localhost:3001/api';
 const RAG2CODE={ON_TRACK:'g',AT_RISK:'w',OFF_TRACK:'r',NOT_STARTED:'n'};
 const NS="http://www.w3.org/2000/svg";
 const svg=(t,a={})=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n;};
@@ -627,6 +627,62 @@ async function loadLivePortfolio(){
   }catch{src.textContent='Demo data (API offline)';src.className='pill n';}
 }
 
+/* ---- Strategy map (BSC) + OKRs: shared builders + live fetch ---- */
+const objStatus=s=>s==null?'NOT_STARTED':s>=70?'ON_TRACK':s>=40?'AT_RISK':'OFF_TRACK';
+const meanProgress=objs=>{const v=objs.map(o=>o.progress).filter(p=>p!=null);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
+function bscHtml(perspectives){
+  return perspectives.map(p=>{
+    const score=p.score!=null?p.score:meanProgress(p.objectives);
+    return `<div class="persp">
+      <div class="tag" style="background:${p.color}"><span class="pct">${score==null?'—':score+'%'}</span><h4>${p.name}</h4><p>${p.desc||''}</p></div>
+      <div class="obj">${p.objectives.map(o=>{const st=objStatus(o.progress);const col=st==='ON_TRACK'?'--good':st==='OFF_TRACK'?'--critical':st==='NOT_STARTED'?'--muted':'--warning';
+        return `<div class="objcard" data-toast="Drilling into: ${o.title}"><div class="oh"><span class="ot">${o.title}</span><span class="dot" style="background:${cv(col)}"></span></div>
+        <div class="od"><span>Attainment</span><span style="color:var(--ink-1);font-weight:700">${o.progress==null?'—':o.progress+'%'}</span></div></div>`}).join("")}</div>
+    </div>`;
+  }).join("");
+}
+function okrHtml(okrs){
+  return okrs.map(o=>{const col=o.score>=70?'--good':o.score>=40?'--warning':'--critical';
+    return `<div class="okr"><div class="oh"><div class="obj-ic">${icon("okr")}</div>
+      <div><div class="obj-t">${o.objective}</div><div class="obj-m">Owner: ${o.owner||'—'} · ${o.keyResults.length} key results</div></div>
+      <div class="score" style="color:${cv(col)}">${o.score==null?'—':o.score+'%'}</div></div>
+      ${o.keyResults.map(k=>`<div class="kr"><div class="krt">${k.title}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${k.progress}%;background:${k.progress>=70?cv('--good'):k.progress>=40?cv('--warning'):cv('--critical')}"></div></div>
+        <div class="krp">${k.progress}%</div></div>`).join("")}
+    </div>`;
+  }).join("");
+}
+const STRATEGY_DEMO=[
+  {name:'Financial',color:'linear-gradient(135deg,#199e70,#22d3ee)',desc:'Sustainable value & fiscal stewardship',objectives:[{title:'Optimize operating cost ratio',progress:78},{title:'Grow non-oil revenue',progress:85},{title:'Maximize benefit realization',progress:83}]},
+  {name:'Customer',color:'linear-gradient(135deg,#6366f1,#8b5cf6)',desc:'Citizen & stakeholder experience',objectives:[{title:'Raise citizen satisfaction',progress:94},{title:'Accelerate digital adoption',progress:78},{title:'Reduce time-to-service',progress:92}]},
+  {name:'Internal Process',color:'linear-gradient(135deg,#c98500,#f59e0b)',desc:'Operational & delivery excellence',objectives:[{title:'Digitize core services',progress:82},{title:'Strengthen governance',progress:80},{title:'Improve project delivery',progress:73}]},
+  {name:'Learning & Growth',color:'linear-gradient(135deg,#9085e9,#d55181)',desc:'People, culture & capability',objectives:[{title:'Build data & AI capability',progress:58},{title:'Raise engagement',progress:83},{title:'Retain critical talent',progress:82}]},
+];
+const OKR_DEMO=[
+  {objective:"Become the region's most trusted digital government",owner:'H.E. the Minister',score:67,keyResults:[{title:'Raise citizen trust index from 68 → 80',progress:75},{title:'90% of services fully digital',progress:83},{title:'Reduce complaint resolution to < 48h',progress:42}]},
+  {objective:'Build a high-performance, future-ready workforce',owner:'CHRO',score:66,keyResults:[{title:'Upskill 5,000 staff on data & AI',progress:58},{title:'Engagement score ≥ 82',progress:83},{title:'Fill 95% of critical roles',progress:56}]},
+];
+async function loadLiveStrategy(){
+  const src=$("#bscSource"),body=$("#bscBody");if(!src||!body)return;
+  try{
+    const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),1500);
+    const res=await fetch(`${API_BASE}/strategy/map`,{signal:ctrl.signal});clearTimeout(t);
+    if(!res.ok)throw 0;const data=await res.json();
+    body.innerHTML=bscHtml(data.perspectives);wireToasts();
+    src.textContent=`Live API · ${data.overall}% overall`;src.className='pill g';
+  }catch{src.textContent='Demo data (API offline)';src.className='pill n';}
+}
+async function loadLiveOkrs(){
+  const src=$("#okrSource"),body=$("#okrBody");if(!src||!body)return;
+  try{
+    const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),1500);
+    const res=await fetch(`${API_BASE}/strategy/okrs`,{signal:ctrl.signal});clearTimeout(t);
+    if(!res.ok)throw 0;const data=await res.json();
+    body.innerHTML=okrHtml(data.okrs);wireToasts();
+    src.textContent=`Live API · avg ${data.summary.averageProgress}%`;src.className='pill g';
+  }catch{src.textContent='Demo data (API offline)';src.className='pill n';}
+}
+
 const VIEWS={
   dash:()=>`
   <div class="page-head">
@@ -687,32 +743,13 @@ const VIEWS={
     </div>
   </div>`,
 
-  strategy:()=>{
-    const P=[
-      {name:"Financial",desc:"Sustainable value & fiscal stewardship",g:"linear-gradient(135deg,#199e70,#22d3ee)",pct:82,objs:[
-        {t:"Optimize operating cost ratio",s:"w",v:"41% / 38%"},{t:"Grow non-oil revenue",s:"g",v:"+12%"},{t:"Maximize benefit realization",s:"g",v:"91%"}]},
-      {name:"Customer",desc:"Citizen & stakeholder experience",g:"linear-gradient(135deg,#6366f1,#8b5cf6)",pct:88,objs:[
-        {t:"Raise citizen satisfaction",s:"g",v:"94%"},{t:"Accelerate digital adoption",s:"r",v:"78%"},{t:"Reduce time-to-service",s:"g",v:"2.4d"}]},
-      {name:"Internal Process",desc:"Operational & delivery excellence",g:"linear-gradient(135deg,#c98500,#f59e0b)",pct:79,objs:[
-        {t:"Digitize core services",s:"w",v:"82%"},{t:"Strengthen governance",s:"g",v:"On track"},{t:"Improve project delivery",s:"w",v:"73%"}]},
-      {name:"Learning & Growth",desc:"People, culture & capability",g:"linear-gradient(135deg,#9085e9,#d55181)",pct:74,objs:[
-        {t:"Build data & AI capability",s:"w",v:"58%"},{t:"Raise engagement",s:"g",v:"83%"},{t:"Retain critical talent",s:"w",v:"88%"}]},
-    ];
-    return `
-    <div class="page-head"><div class="lead"><h2>Strategy Map — Balanced Scorecard</h2><p>National strategy 2026–2030 cascaded across the four perspectives. Colours reflect objective health; click an objective to drill into its KPIs.</p></div>
+  strategy:()=>`
+    <div class="page-head"><div class="lead"><h2>Strategy Map — Balanced Scorecard <span id="bscSource" class="pill n">Demo data</span></h2><p>National strategy 2026–2030 cascaded across the four perspectives. Perspective % and objective health are rolled up by the shared domain core; click an objective to drill into its KPIs.</p></div>
       <div class="head-actions"><button class="btn ai" data-nav="ai">${icon("spark")} Explain strategy health</button><button class="btn primary" data-toast="Objective editor opened.">${icon("plus")} Add objective</button></div></div>
-    <div class="bsc">
-      ${P.map(p=>`<div class="persp">
-        <div class="tag" style="background:${p.g}"><span class="pct">${p.pct}%</span><h4>${p.name}</h4><p>${p.desc}</p></div>
-        <div class="obj">${p.objs.map(o=>`<div class="objcard" data-toast="Drilling into: ${o.t}">
-          <div class="oh"><span class="ot">${o.t}</span><span class="dot" style="background:${o.s==='g'?cv('--good'):o.s==='w'?cv('--warning'):cv('--critical')}"></span></div>
-          <div class="od"><span>Attainment</span><span style="color:var(--ink-1);font-weight:700">${o.v}</span></div></div>`).join("")}</div>
-      </div>`).join("")}
-    </div>`;
-  },
+    <div class="bsc" id="bscBody">${bscHtml(STRATEGY_DEMO)}</div>`,
 
   kpi:()=>`
-    <div class="page-head"><div class="lead"><h2>KPI Scorecards <span id="kpiSource" class="pill n">Demo data</span></h2><p>Enterprise KPI library with targets, thresholds, weighting and RAG status — evaluated by the shared domain core. Connects to the Helm EPM API when it is running.</p></div>
+    <div class="page-head"><div class="lead"><h2>KPI Scorecards <span id="kpiSource" class="pill n">Demo data</span></h2><p>Enterprise KPI library with targets, thresholds, weighting and RAG status — evaluated by the shared domain core. Connects to the Mizan EPM API when it is running.</p></div>
       <div class="head-actions"><button class="btn" data-toast="Filters panel opened.">Filter</button><button class="btn ai" data-nav="ai">${icon("spark")} Analyze KPIs</button><button class="btn primary" data-toast="KPI created from template.">${icon("plus")} New KPI</button></div></div>
     <div class="card" style="padding:8px 8px 4px">
     <table><thead><tr><th>KPI</th><th>Owner</th><th class="num">Actual</th><th class="num">Target</th><th>Attainment</th><th>Trend</th><th>Status</th></tr></thead>
@@ -746,16 +783,9 @@ const VIEWS={
   },
 
   okr:()=>`
-    <div class="page-head"><div class="lead"><h2>OKRs & Goals</h2><p>Objectives and Key Results aligned top-down from the ministerial vision. Q2 FY2026 check-in.</p></div>
+    <div class="page-head"><div class="lead"><h2>OKRs & Goals <span id="okrSource" class="pill n">Demo data</span></h2><p>Objectives and Key Results aligned top-down from the ministerial vision. Scores are rolled up from key-result progress by the shared domain core. Q2 FY2026 check-in.</p></div>
       <div class="head-actions"><button class="btn ai" data-nav="ai">${icon("spark")} Suggest key results</button><button class="btn primary" data-toast="Objective created.">${icon("plus")} New objective</button></div></div>
-    ${OKRS.map(o=>`<div class="okr">
-      <div class="oh"><div class="obj-ic">${icon("okr")}</div>
-        <div><div class="obj-t">${o.obj}</div><div class="obj-m">Owner: ${o.owner} · ${o.krs.length} key results</div></div>
-        <div class="score" style="color:${o.score>=70?cv('--good'):o.score>=50?cv('--warning'):cv('--critical')}">${o.score}%</div></div>
-      ${o.krs.map(k=>`<div class="kr"><div class="krt">${k.t}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${k.p}%;background:${k.p>=70?cv('--good'):k.p>=50?cv('--warning'):cv('--critical')}"></div></div>
-        <div class="krp">${k.p}%</div></div>`).join("")}
-    </div>`).join("")}`,
+    <div id="okrBody">${okrHtml(OKR_DEMO)}</div>`,
 
   project:()=>{
     const PROJ=[
@@ -838,6 +868,8 @@ function render(id){
   if(id==="portfolio"){renderBubble();$("#pfDonut").innerHTML=donut(PF_DATA.map(p=>({v:p.budget,color:'--'+p.color})),140);loadLivePortfolio();}
   if(id==="kpi"){loadLiveKpis();}
   if(id==="kri"){loadLiveRisks();}
+  if(id==="strategy"){loadLiveStrategy();}
+  if(id==="okr"){loadLiveOkrs();}
   if(id==="ai"){initChat();}
   wireToasts();
   $("#content").scrollTop=0;
@@ -875,7 +907,7 @@ const CHAT_ANSWERS={
   "summarize portfolio for the board":"<strong>Board summary:</strong> $227M across 6 programs. Portfolio is well-balanced — 4 of 6 sit in the high-value / lower-risk quadrant. The AI Center of Excellence and Digital Government Platform offer the best value-to-risk ratio. Watch item: Smart City (risk 6.2/10). Suggested decision: approve the next $18M tranche for the AI CoE and stage-gate the Smart City program pending schedule recovery.",
 };
 function bubbleMsg(txt,who){const d=document.createElement("div");d.className="msg "+who;
-  d.innerHTML=who==="a"?`<div class="who">${icon("spark","spark")} Helm Copilot · Claude Opus</div>${txt}`:txt;
+  d.innerHTML=who==="a"?`<div class="who">${icon("spark","spark")} Mizan Copilot · Claude Opus</div>${txt}`:txt;
   $("#chatStream").appendChild(d);$("#chatStream").scrollTop=1e9;return d;}
 function initChat(){
   const s=$("#chatStream");s.innerHTML="";

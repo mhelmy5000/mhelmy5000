@@ -35,8 +35,8 @@ async function main(): Promise<void> {
   });
   const analystRole = await prisma.role.upsert({
     where: { tenantId_key: { tenantId: tenant.id, key: 'kpi.analyst' } },
-    update: { permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'risk:read', 'portfolio:read', 'ai:use'] },
-    create: { tenantId: tenant.id, key: 'kpi.analyst', name: 'Performance Analyst', permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'risk:read', 'portfolio:read', 'ai:use'] },
+    update: { permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'risk:read', 'portfolio:read', 'strategy:read', 'strategy:update', 'ai:use'] },
+    create: { tenantId: tenant.id, key: 'kpi.analyst', name: 'Performance Analyst', permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'risk:read', 'portfolio:read', 'strategy:read', 'strategy:update', 'ai:use'] },
   });
 
   const admin = await prisma.user.upsert({
@@ -131,9 +131,69 @@ async function main(): Promise<void> {
     });
   }
 
+  // ── Strategy: Balanced Scorecard perspectives + objectives ──
+  const PERSPECTIVES = [
+    { key: 'financial', name: 'Financial', order: 1, color: 'linear-gradient(135deg,#199e70,#22d3ee)',
+      objectives: [['Optimize operating cost ratio', 78], ['Grow non-oil revenue', 85], ['Maximize benefit realization', 83]] },
+    { key: 'customer', name: 'Customer', order: 2, color: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      objectives: [['Raise citizen satisfaction', 94], ['Accelerate digital adoption', 78], ['Reduce time-to-service', 92]] },
+    { key: 'process', name: 'Internal Process', order: 3, color: 'linear-gradient(135deg,#c98500,#f59e0b)',
+      objectives: [['Digitize core services', 82], ['Strengthen governance', 80], ['Improve project delivery', 73]] },
+    { key: 'learning', name: 'Learning & Growth', order: 4, color: 'linear-gradient(135deg,#9085e9,#d55181)',
+      objectives: [['Build data & AI capability', 58], ['Raise engagement', 83], ['Retain critical talent', 82]] },
+  ];
+  const rag = (p: number) => (p >= 70 ? 'ON_TRACK' : p >= 40 ? 'AT_RISK' : 'OFF_TRACK');
+  for (const p of PERSPECTIVES) {
+    const pid = `${tenant.id}-p-${p.key}`;
+    await prisma.perspective.upsert({
+      where: { id: pid },
+      update: { name: p.name, order: p.order, color: p.color },
+      create: { id: pid, tenantId: tenant.id, name: p.name, order: p.order, color: p.color },
+    });
+    for (const [title, progress] of p.objectives) {
+      const oid = `${tenant.id}-obj-${String(title).slice(0, 24)}`;
+      await prisma.objective.upsert({
+        where: { id: oid },
+        update: { progress: progress as number, status: rag(progress as number) as never },
+        create: {
+          id: oid, tenantId: tenant.id, perspectiveId: pid, title: title as string,
+          type: 'STRATEGIC', progress: progress as number, status: rag(progress as number) as never, weight: 1,
+        },
+      });
+    }
+  }
+
+  // ── OKRs (objectives with key results) ──
+  const OKRS = [
+    { title: "Become the region's most trusted digital government", ownerId: admin.id, krs: [
+      ['Raise citizen trust index from 68 → 80', 68, 77, 80], ['90% of services fully digital', 55, 84, 90], ['Reduce complaint resolution to < 48h', 96, 76, 48] ] },
+    { title: 'Build a high-performance, future-ready workforce', ownerId: analyst.id, krs: [
+      ['Upskill 5,000 staff on data & AI', 0, 2900, 5000], ['Engagement score ≥ 82', 76, 81, 82], ['Fill 95% of critical roles', 70, 84, 95] ] },
+  ];
+  const krPct = (s: number, c: number, t: number) => (t === s ? (c >= t ? 100 : 0) : Math.round(Math.max(0, Math.min(100, ((c - s) / (t - s)) * 100))));
+  for (const o of OKRS) {
+    const oid = `${tenant.id}-okr-${o.title.slice(0, 24)}`;
+    const scores = o.krs.map(([, s, c, t]) => krPct(s as number, c as number, t as number));
+    const objScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    await prisma.objective.upsert({
+      where: { id: oid },
+      update: { progress: objScore, status: rag(objScore) as never },
+      create: { id: oid, tenantId: tenant.id, title: o.title, type: 'OKR', ownerId: o.ownerId, progress: objScore, status: rag(objScore) as never, weight: 1 },
+    });
+    for (let i = 0; i < o.krs.length; i++) {
+      const [title, s, c, t] = o.krs[i];
+      await prisma.keyResult.upsert({
+        where: { id: `${oid}-kr${i}` },
+        update: { currentValue: c as number, targetValue: t as number, progress: krPct(s as number, c as number, t as number) },
+        create: { id: `${oid}-kr${i}`, objectiveId: oid, title: title as string, startValue: s as number, currentValue: c as number, targetValue: t as number, progress: krPct(s as number, c as number, t as number) },
+      });
+    }
+  }
+
   console.log(
     `Seeded tenant "${tenant.name}": ${KPIS.length} KPIs, ${RISKS.length} risks, ` +
-    `${INITIATIVES.length} initiatives, 3 roles, 2 users.`,
+    `${INITIATIVES.length} initiatives, ${PERSPECTIVES.length} perspectives + objectives, ` +
+    `${OKRS.length} OKRs, 3 roles, 2 users.`,
   );
 }
 

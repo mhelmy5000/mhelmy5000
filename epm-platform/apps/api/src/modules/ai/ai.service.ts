@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   AiRouter, EpmInsightService, defaultProviderConfigs,
-} from '@helm/ai-core';
+} from '@mizan/ai-core';
 import { KpiService } from '../kpi/kpi.service';
 import { AuthUser } from '../../common/auth/auth-user';
 import { QueryKpiDto } from '../kpi/dto/query-kpi.dto';

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   evaluateKpi, latestActual, trendSeries, weightedScore,
   type KpiDirection, type RagStatus,
-} from '@helm/domain';
+} from '@mizan/domain';
 import { KpiRepository } from './kpi.repository';
 import { AuthUser } from '../../common/auth/auth-user';
 import { CreateKpiDto } from './dto/create-kpi.dto';
@@ -35,7 +35,7 @@ export interface Scorecard {
 
 /**
  * KPI application service. Persistence goes through the repository; *judgement*
- * (attainment, RAG, rollups) is delegated to the pure `@helm/domain` core, so
+ * (attainment, RAG, rollups) is delegated to the pure `@mizan/domain` core, so
  * the same logic is used by the API, jobs and reports and is unit-tested in
  * isolation.
  */

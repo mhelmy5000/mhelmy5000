@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * Phase-1 login. In production this endpoint is replaced/augmented by the
- * OIDC/SAML/Entra callback; the federated identity is resolved to a Helm user
+ * OIDC/SAML/Entra callback; the federated identity is resolved to a Mizan user
  * and the same token-issuing path runs.
  */
 export class LoginDto {

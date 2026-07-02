@@ -1,7 +1,7 @@
 {
-  "name": "@helm/api",
+  "name": "@mizan/api",
   "version": "0.1.0",
-  "description": "Helm EPM backend API (NestJS) — IAM + KPI module (Phase 1).",
+  "description": "Mizan EPM backend API (NestJS) — IAM + KPI module (Phase 1).",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
@@ -16,8 +16,8 @@
     "dev:reference": "node dev-server.mjs"
   },
   "dependencies": {
-    "@helm/ai-core": "workspace:*",
-    "@helm/domain": "workspace:*",
+    "@mizan/ai-core": "workspace:*",
+    "@mizan/domain": "workspace:*",
     "@nestjs/common": "^10.3.0",
     "@nestjs/config": "^3.2.0",
     "@nestjs/core": "^10.3.0",

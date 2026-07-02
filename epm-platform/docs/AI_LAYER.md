@@ -1,4 +1,4 @@
-# Helm EPM — AI Abstraction Layer (`@helm/ai-core`)
+# Mizan EPM — AI Abstraction Layer (`@mizan/ai-core`)
 
 The AI layer is provider-agnostic: business logic depends only on the
 `AiRouter` and `EpmInsightService`. Providers are adapters selected from
@@ -71,7 +71,7 @@ recommendation, NL→query, agents/MCP tool-calling) extend the same pattern.
 import {
   AiRouter, EpmInsightService, Retriever, InMemoryVectorStore,
   defaultProviderConfigs,
-} from '@helm/ai-core';
+} from '@mizan/ai-core';
 
 const router = new AiRouter(defaultProviderConfigs(process.env), {
   onFailover: (e) => logger.warn(`AI failover ${e.from}→${e.to} (${e.reason})`),

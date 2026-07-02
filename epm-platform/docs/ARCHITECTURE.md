@@ -1,4 +1,4 @@
-# Helm EPM — Architecture
+# Mizan EPM — Architecture
 
 > Enterprise Performance Management platform: Strategy → KPI/KRI → Initiatives →
 > Portfolio → Projects → OKRs, with a provider-agnostic AI layer. Designed for
@@ -31,7 +31,7 @@
                           └───┬───────────┬───────────┬────────────────┘
              ┌────────────────┘           │           └───────────────────┐
    ┌─────────▼─────────┐      ┌───────────▼──────────┐        ┌───────────▼──────────┐
-   │ Domain modules    │      │  @helm/ai-core       │        │  Projections/Reports │
+   │ Domain modules    │      │  @mizan/ai-core       │        │  Projections/Reports │
    │ Strategy·KPI·KRI· │      │  Router · adapters · │        │  CQRS read models ·  │
    │ Portfolio·Project·│      │  RAG · prompts ·     │        │  PDF/PPTX/XLSX       │
    │ OKR (DDD)         │      │  agents · MCP        │        │                      │

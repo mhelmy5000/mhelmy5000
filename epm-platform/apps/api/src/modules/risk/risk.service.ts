@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   evaluateRisk, aggregateRisks, heatGrid, riskScore,
   type RiskLevel, type HeatCell,
-} from '@helm/domain';
+} from '@mizan/domain';
 import { RiskRepository } from './risk.repository';
 import { AuthUser } from '../../common/auth/auth-user';
 import { CreateRiskDto } from './dto/create-risk.dto';
@@ -41,7 +41,7 @@ export interface RiskRegister {
   };
 }
 
-/** Risk application service — persistence via repository, scoring via @helm/domain. */
+/** Risk application service — persistence via repository, scoring via @mizan/domain. */
 @Injectable()
 export class RiskService {
   constructor(private readonly repo: RiskRepository) {}

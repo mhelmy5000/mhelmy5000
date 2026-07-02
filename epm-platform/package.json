@@ -1,8 +1,8 @@
 {
-  "name": "helm-epm",
+  "name": "mizan-epm",
   "version": "0.1.0",
   "private": true,
-  "description": "Helm EPM — Enterprise Performance Management platform (monorepo).",
+  "description": "Mizan EPM — Enterprise Performance Management platform (monorepo).",
   "license": "UNLICENSED",
   "workspaces": [
     "packages/*",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Helm EPM — zero-dependency reference API server.
+ * Mizan EPM — zero-dependency reference API server.
  *
  * Mirrors the NestJS KPI + AI endpoints (apps/api/src) over Node's built-in
  * http, backed by the same seed data as prisma/seed.ts. It exists so the whole
@@ -9,7 +9,7 @@
  * KPI Scorecard can point at *live* data.
  *
  * The evaluation logic below is a faithful, dependency-free mirror of
- * `@helm/domain` (packages/domain/src/kpi/kpi.logic.ts) — the NestJS app imports
+ * `@mizan/domain` (packages/domain/src/kpi/kpi.logic.ts) — the NestJS app imports
  * that shared package directly; this file cannot (it must run with no build).
  *
  *   Run:  node apps/api/dev-server.mjs      (PORT env optional, default 3001)
@@ -74,7 +74,7 @@ function scorecard() {
   return { items, overallAttainmentPct: overall == null ? null : Math.round(overall * 100), statusCounts };
 }
 
-// A grounded, deterministic KPI analysis (real deployments call @helm/ai-core;
+// A grounded, deterministic KPI analysis (real deployments call @mizan/ai-core;
 // here there is no external key, so we synthesize from the live scorecard).
 function kpiAnalysis() {
   const sc = scorecard();
@@ -148,6 +148,54 @@ function portfolioMatrix() {
   return { items, summary, priorityOrder };
 }
 
+// ── strategy / OKR domain mirror + seed (see packages/domain/src/strategy) ──
+function krProgress(start, current, target) {
+  if (target === start) return current >= target ? 100 : 0;
+  return Math.round(Math.max(0, Math.min(100, ((current - start) / (target - start)) * 100)));
+}
+const objectiveStatus = (s) => (s == null || s <= 0 ? 'NOT_STARTED' : s >= 70 ? 'ON_TRACK' : s >= 40 ? 'AT_RISK' : 'OFF_TRACK');
+const meanRound = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+
+const PERSPECTIVES = [
+  { id: 'p1', name: 'Financial', color: 'linear-gradient(135deg,#199e70,#22d3ee)', desc: 'Sustainable value & fiscal stewardship',
+    objectives: [{ title: 'Optimize operating cost ratio', progress: 78 }, { title: 'Grow non-oil revenue', progress: 85 }, { title: 'Maximize benefit realization', progress: 83 }] },
+  { id: 'p2', name: 'Customer', color: 'linear-gradient(135deg,#6366f1,#8b5cf6)', desc: 'Citizen & stakeholder experience',
+    objectives: [{ title: 'Raise citizen satisfaction', progress: 94 }, { title: 'Accelerate digital adoption', progress: 78 }, { title: 'Reduce time-to-service', progress: 92 }] },
+  { id: 'p3', name: 'Internal Process', color: 'linear-gradient(135deg,#c98500,#f59e0b)', desc: 'Operational & delivery excellence',
+    objectives: [{ title: 'Digitize core services', progress: 82 }, { title: 'Strengthen governance', progress: 80 }, { title: 'Improve project delivery', progress: 73 }] },
+  { id: 'p4', name: 'Learning & Growth', color: 'linear-gradient(135deg,#9085e9,#d55181)', desc: 'People, culture & capability',
+    objectives: [{ title: 'Build data & AI capability', progress: 58 }, { title: 'Raise engagement', progress: 83 }, { title: 'Retain critical talent', progress: 82 }] },
+];
+function strategyMap() {
+  const perspectives = PERSPECTIVES.map((p, pi) => ({
+    id: p.id, name: p.name, color: p.color, desc: p.desc,
+    score: meanRound(p.objectives.map((o) => o.progress)),
+    objectives: p.objectives.map((o, oi) => ({ id: `${p.id}-o${oi}`, title: o.title, progress: o.progress, status: objectiveStatus(o.progress) })),
+  }));
+  const overall = meanRound(perspectives.map((p) => p.score));
+  return { perspectives, overall };
+}
+
+const OKRS = [
+  { id: 'okr1', objective: "Become the region's most trusted digital government", owner: 'H.E. the Minister', krs: [
+    { title: 'Raise citizen trust index from 68 → 80', s: 68, c: 77, t: 80 },
+    { title: '90% of services fully digital', s: 55, c: 84, t: 90 },
+    { title: 'Reduce complaint resolution to < 48h', s: 96, c: 76, t: 48 } ] },
+  { id: 'okr2', objective: 'Build a high-performance, future-ready workforce', owner: 'CHRO', krs: [
+    { title: 'Upskill 5,000 staff on data & AI', s: 0, c: 2900, t: 5000 },
+    { title: 'Engagement score ≥ 82', s: 76, c: 81, t: 82 },
+    { title: 'Fill 95% of critical roles', s: 70, c: 84, t: 95 } ] },
+];
+function strategyOkrs() {
+  const okrs = OKRS.map((o) => {
+    const keyResults = o.krs.map((k, i) => ({ id: `${o.id}-kr${i}`, title: k.title, current: k.c, target: k.t, progress: krProgress(k.s, k.c, k.t) }));
+    const score = meanRound(keyResults.map((k) => k.progress));
+    return { id: o.id, objective: o.objective, owner: o.owner, score, status: objectiveStatus(score), keyResults };
+  });
+  const byStatus = okrs.reduce((a, o) => ((a[o.status] = (a[o.status] ?? 0) + 1), a), { ON_TRACK: 0, AT_RISK: 0, OFF_TRACK: 0, NOT_STARTED: 0 });
+  return { okrs, summary: { total: okrs.length, byStatus, averageProgress: meanRound(okrs.map((o) => o.score)) } };
+}
+
 // ── http ────────────────────────────────────────────────────────────────────
 const json = (res, code, body) => {
   res.writeHead(code, {
@@ -170,10 +218,12 @@ const server = createServer((req, res) => {
   if (pathname === '/api/kpis/scorecard' && req.method === 'GET') return json(res, 200, scorecard());
   if (pathname === '/api/risks/register' && req.method === 'GET') return json(res, 200, riskRegister());
   if (pathname === '/api/portfolio/matrix' && req.method === 'GET') return json(res, 200, portfolioMatrix());
+  if (pathname === '/api/strategy/map' && req.method === 'GET') return json(res, 200, strategyMap());
+  if (pathname === '/api/strategy/okrs' && req.method === 'GET') return json(res, 200, strategyOkrs());
   if (pathname === '/api/ai/kpi-analysis' && req.method === 'POST') return json(res, 200, kpiAnalysis());
 
   json(res, 404, { statusCode: 404, message: `no route for ${req.method} ${pathname}` });
 });
 
 const port = Number(process.env.PORT ?? 3001);
-server.listen(port, () => console.log(`Helm EPM reference API on http://localhost:${port}/api  (health: /api/health)`));
+server.listen(port, () => console.log(`Mizan EPM reference API on http://localhost:${port}/api  (health: /api/health)`));

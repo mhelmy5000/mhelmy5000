@@ -1,9 +1,9 @@
-# @helm/api — Helm EPM backend (Phase 1)
+# @mizan/api — Mizan EPM backend (Phase 1)
 
 NestJS API implementing **IAM** (JWT auth + RBAC/ABAC) and the **KPI module**
-end-to-end, plus an **AI** endpoint wired to `@helm/ai-core`. KPI judgement
+end-to-end, plus an **AI** endpoint wired to `@mizan/ai-core`. KPI judgement
 (attainment, RAG, scorecard rollups) is delegated to the pure, unit-tested
-`@helm/domain` core.
+`@mizan/domain` core.
 
 ## Architecture
 
@@ -11,9 +11,9 @@ end-to-end, plus an **AI** endpoint wired to `@helm/ai-core`. KPI judgement
 HTTP ─▶ JwtAuthGuard (global, @Public opt-out)
      ─▶ PermissionsGuard (global, @RequirePermissions RBAC)
      ─▶ Controller (DTO validation via class-validator)
-     ─▶ Service  ──uses──▶ @helm/domain  (attainment / RAG / rollup)
+     ─▶ Service  ──uses──▶ @mizan/domain  (attainment / RAG / rollup)
                 └─▶ Repository (tenant-scoped Prisma) ─▶ Postgres (+RLS)
-AiController ─▶ AiService ─▶ @helm/ai-core (router + fallback) + KpiService
+AiController ─▶ AiService ─▶ @mizan/ai-core (router + fallback) + KpiService
 ```
 
 - **Secure by default:** every route needs a valid JWT unless `@Public()`; RBAC
@@ -35,6 +35,10 @@ AiController ─▶ AiService ─▶ @helm/ai-core (router + fallback) + KpiServ
 | PATCH | `/api/kpis/:id` | `kpi:update` | Update a KPI |
 | POST | `/api/kpis/:id/measurements` | `kpi:update` | Record/upsert a measurement |
 | DELETE | `/api/kpis/:id` | `kpi:delete` | Soft-delete (archive) |
+| GET | `/api/strategy/map` | `strategy:read` | Balanced Scorecard: perspectives → objectives → overall |
+| GET | `/api/strategy/okrs` | `strategy:read` | OKRs with key-result progress, score, status |
+| POST | `/api/strategy/objectives` | `strategy:create` | Create objective / OKR / goal |
+| PATCH | `/api/strategy/objectives/:id/key-results/:krId` | `strategy:update` | Key-result check-in (recomputes score) |
 | GET | `/api/risks` | `risk:read` | List risks with score + severity level |
 | GET | `/api/risks/register` | `risk:read` | Register: risks + 5×5 heatmap + RAG summary |
 | POST/PATCH/DELETE | `/api/risks/:id?` | `risk:*` | Create / update / close a risk |
@@ -63,17 +67,18 @@ KPI endpoints with `Authorization: Bearer <token>`.
 
 For sandboxes/CI/demos without the NestJS+Prisma+Postgres stack, a
 dependency-free server mirrors the KPI + AI endpoints over Node's `http`, using
-the same seed data and an inline mirror of `@helm/domain`:
+the same seed data and an inline mirror of `@mizan/domain`:
 
 ```bash
 node apps/api/dev-server.mjs          # http://localhost:3001/api  (health: /api/health)
 ```
 
-The prototype's **KPI Scorecard**, **Risk & KRIs**, and **Portfolio** views
-auto-connect to `http://localhost:3001/api` and flip their badge to **“Live
-API”** when this (or the full API) is running; otherwise they show demo data.
+The prototype's **KPI Scorecard**, **Strategy Map**, **OKRs**, **Risk & KRIs**,
+and **Portfolio** views auto-connect to `http://localhost:3001/api` and flip
+their badge to **“Live API”** when this (or the full API) is running; otherwise
+they show demo data.
 Override the base URL in the browser console:
-`localStorage.setItem('helm.apiBase', 'http://host:port/api')`.
+`localStorage.setItem('mizan.apiBase', 'http://host:port/api')`.
 
 ## Status
 

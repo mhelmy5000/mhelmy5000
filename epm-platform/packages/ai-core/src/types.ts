@@ -1,5 +1,5 @@
 /**
- * Helm EPM — AI Core: provider-agnostic type contracts.
+ * Mizan EPM — AI Core: provider-agnostic type contracts.
  *
  * These interfaces are the *only* thing business logic (NestJS services,
  * agents, RAG pipelines) depends on. Concrete SDKs (Anthropic, OpenAI,

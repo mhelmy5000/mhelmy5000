@@ -1,4 +1,4 @@
-# Helm EPM — Delivery Roadmap
+# Mizan EPM — Delivery Roadmap
 
 An honest, phased plan. A complete commercial EPM platform is a multi-team,
 multi-quarter build; this sequences it so every phase ships something usable and
@@ -9,7 +9,7 @@ verifiable rather than a wall of stubs.
 ## Phase 0 — Foundation (this repository)
 - ✅ Premium UX prototype: enterprise shell, 7 modules, command palette,
   dark/light, EN/AR RTL, interactive charts (verified in-browser).
-- ✅ `@helm/ai-core`: provider-agnostic router, 5 adapters (+Bedrock stub), RAG
+- ✅ `@mizan/ai-core`: provider-agnostic router, 5 adapters (+Bedrock stub), RAG
   ports, prompt templates, insight service (typechecks under `strict`).
 - ✅ Prisma schema for core domains (multi-tenant, RBAC/ABAC, audit).
 - ✅ Local infra compose (Postgres+pgvector, Redis, RabbitMQ, Ollama).
@@ -22,27 +22,31 @@ verifiable rather than a wall of stubs.
   via `@RequirePermissions` + `PermissionsGuard`, **ABAC** org-unit scopes on the
   principal, token issuance resolving roles→permissions from the DB.
 - ✅ **KPI module end-to-end**: CRUD, measurement upsert, weighted scorecard,
-  RAG evaluation — delegated to `@helm/domain` (pure core, **24/24 unit tests**).
-- ✅ AI endpoint (`/api/ai/kpi-analysis`) wired to `@helm/ai-core`, grounded on
+  RAG evaluation — delegated to `@mizan/domain` (pure core, **24/24 unit tests**).
+- ✅ AI endpoint (`/api/ai/kpi-analysis`) wired to `@mizan/ai-core`, grounded on
   the live scorecard.
 - ✅ Seed data (`prisma/seed.ts`): demo tenant, 3 roles, 2 users, 6 KPIs × 7
   months of measurements.
 - ✅ Zero-dependency **reference API server** mirroring the KPI/AI endpoints; the
   prototype's KPI Scorecard now reads **live data** from it (verified).
 - ✅ **Risk/KRI module**: scoring (likelihood×impact), severity bands, appetite
-  breaches, 5×5 heatmap, register aggregation — via `@helm/domain`. Prototype
+  breaches, 5×5 heatmap, register aggregation — via `@mizan/domain`. Prototype
   Risk view reads live data.
 - ✅ **Portfolio module**: value/risk quadrant classification, prioritization
-  scoring, portfolio rollups — via `@helm/domain`. Prototype Portfolio view reads
-  live data. (Risk + Portfolio domain: **32 more unit tests**, 56 total.)
+  scoring, portfolio rollups — via `@mizan/domain`. Prototype Portfolio view reads
+  live data.
+- ✅ **Strategy / OKR module**: key-result progress (increase & decrease goals),
+  objective scoring & status, Balanced-Scorecard rollups (objective → perspective
+  → strategy) — via `@mizan/domain`. Prototype Strategy Map + OKR views read live
+  data. (Domain now **78 unit tests** total.)
 - 🔨 Prisma migrations + Postgres RLS policies; wire the full NestJS app against
   a live database (needs `pnpm install` — deps unavailable in the CI sandbox).
-- 🔨 Strategy module; transactional outbox on RabbitMQ; audit + notifications.
+- 🔨 Transactional outbox on RabbitMQ; audit + notifications.
 - 🔨 GraphQL resolvers alongside REST; integration tests.
 
 ## Phase 2 — Frontend spine (4–6 wks)
 - ⏳ Next.js 15 app: auth, tenant switch, i18n (EN/AR), theming from prototype.
-- ⏳ Shared `@helm/ui` component + chart library (Recharts/D3/React Flow) built
+- ⏳ Shared `@mizan/ui` component + chart library (Recharts/D3/React Flow) built
   from the prototype's design system.
 - ⏳ Executive Dashboard, Strategy Map, KPI Scorecards wired to the live API via
   TanStack Query; Zustand for client state; forms via RHF+Zod.
@@ -66,7 +70,8 @@ verifiable rather than a wall of stubs.
 - ⏳ Admin/User/Developer guides; ER/sequence/component diagrams.
 
 ## Suggested next step
-IAM + KPI + Risk/KRI + Portfolio are done, each with a tested domain core and
-the prototype consuming them live. Next: the **Strategy/OKR** module on the same
-pattern, then stand the full NestJS app up against Postgres (migrations + RLS +
-seed) so all four modules run on a real database, and add integration tests.
+IAM + KPI + Strategy/OKR + Risk/KRI + Portfolio are done, each with a tested
+domain core and the prototype consuming them live. Next: stand the full NestJS
+app up against Postgres (migrations + RLS + the seed) so every module runs on a
+real database, add integration/e2e tests, then move to Phase 2 (the Next.js
+frontend built from the prototype's design system).

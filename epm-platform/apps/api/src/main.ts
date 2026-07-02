@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 /**
- * Helm EPM API bootstrap. Global `/api` prefix, strict validation (whitelist +
+ * Mizan EPM API bootstrap. Global `/api` prefix, strict validation (whitelist +
  * transform so DTOs are the contract), Swagger/OpenAPI at `/api/docs`, security
  * headers, and CORS for the web app.
  */
@@ -27,7 +27,7 @@ async function bootstrap(): Promise<void> {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Helm EPM API')
+    .setTitle('Mizan EPM API')
     .setDescription('Enterprise Performance Management — IAM + KPI module (Phase 1)')
     .setVersion('0.1.0')
     .addBearerAuth()
@@ -39,7 +39,7 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
-  Logger.log(`Helm EPM API listening on http://localhost:${port}/api`, 'Bootstrap');
+  Logger.log(`Mizan EPM API listening on http://localhost:${port}/api`, 'Bootstrap');
 }
 
 void bootstrap();

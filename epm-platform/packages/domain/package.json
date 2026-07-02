@@ -1,5 +1,5 @@
 {
-  "name": "@helm/domain",
+  "name": "@mizan/domain",
   "version": "0.1.0",
   "description": "Pure, framework-free EPM domain logic (KPI evaluation, RAG, scorecard rollups).",
   "license": "UNLICENSED",
