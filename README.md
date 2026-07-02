@@ -20,16 +20,21 @@ Features: light/dark theme toggle, 24h/7d/30d time ranges, interactive
 crosshair and hover tooltips, and an accessible color palette that stays
 colorblind-safe in both themes.
 
-## 🏛️ Helm EPM — Enterprise Performance Management platform
+## 🏛️ Mizan EPM (ميزان) — Enterprise Performance Management platform
 
 A larger, enterprise-grade work-in-progress: a multi-tenant EPM platform
 covering Strategy, KPIs, KRIs, Initiatives, Portfolio, Projects and OKRs, with a
-provider-agnostic AI copilot.
+provider-agnostic AI copilot. **Mizan** (ميزان) is Arabic for "balance/scale" —
+fitting for a Balanced-Scorecard performance platform.
 
 - **Folder:** [`epm-platform/`](epm-platform/) · start with its
   [README](epm-platform/README.md)
 - **Premium UI prototype:** [`epm-platform/prototype/index.html`](epm-platform/prototype/index.html)
   — enterprise shell, 7 modules, command palette (⌘K), dark/light, Arabic RTL.
+- **Web app (Next.js 15):** [`epm-platform/apps/web`](epm-platform/apps/web) —
+  built from the prototype's design system, wired to the API via TanStack Query.
+- **Backend (NestJS) + Postgres RLS:** [`epm-platform/apps/api`](epm-platform/apps/api)
+  — IAM + KPI/Strategy/Risk/Portfolio modules; row-level security verified on real Postgres.
 - **AI abstraction layer:** [`epm-platform/packages/ai-core`](epm-platform/packages/ai-core)
   — Claude / OpenAI / Gemini / Ollama / Azure with priority fallback + RAG
   (typechecked and unit-verified).
