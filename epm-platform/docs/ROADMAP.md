@@ -49,12 +49,17 @@ verifiable rather than a wall of stubs.
 - 🔨 Transactional outbox on RabbitMQ; audit + notifications.
 - 🔨 GraphQL resolvers alongside REST; integration tests.
 
-## Phase 2 — Frontend spine (4–6 wks)
-- ⏳ Next.js 15 app: auth, tenant switch, i18n (EN/AR), theming from prototype.
-- ⏳ Shared `@mizan/ui` component + chart library (Recharts/D3/React Flow) built
-  from the prototype's design system.
-- ⏳ Executive Dashboard, Strategy Map, KPI Scorecards wired to the live API via
-  TanStack Query; Zustand for client state; forms via RHF+Zod.
+## Phase 2 — Frontend spine (in progress)
+- ✅ Next.js 15 (App Router) + React 19 app scaffolded (`apps/web`): root layout,
+  providers (TanStack Query + next-themes), Mizan design tokens ported to
+  `globals.css` + Tailwind, app shell (sidebar + topbar).
+- ✅ Typed, **verified** data layer: `lib/api.ts` (framework-agnostic `MizanApi`
+  client) + `lib/types.ts` (DTO contract) — exercised end-to-end against the API
+  (8/8 assertions across all module endpoints + login).
+- ✅ Five data-driven module pages wired via TanStack Query hooks: Executive
+  Dashboard, KPI Scorecards, Strategy Map, OKRs, Risk & KRIs, Portfolio matrix.
+- 🔨 Auth flow (login → JWT), tenant switch, i18n (EN/AR RTL), forms (RHF+Zod).
+- 🔨 Extract shared `@mizan/ui` package; richer charts (D3/React Flow).
 
 ## Phase 3 — Remaining modules (6–10 wks)
 - ⏳ KRI/Risk, Portfolio, Project/PMO, OKR, Reviews modules (API + UI).

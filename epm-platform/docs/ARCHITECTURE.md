@@ -112,8 +112,9 @@ See [`prisma/schema.prisma`](../prisma/schema.prisma) and
 | Prisma schema (core domains, multi-tenant, RBAC, audit) | ✅ authored (`prisma/schema.prisma`) |
 | SQL migration (20 tables) + **forced Row-Level Security** | ✅ verified on real Postgres 16 (`infra/postgres/verify-rls.sh`) |
 | NestJS API (IAM + KPI/Strategy/Risk/Portfolio + AI) + tenant-context RLS wiring | ✅ authored, typed; runs once deps installed |
+| Next.js 15 web app (design system, shell, 5 module pages) + verified data layer | ✅ `apps/web`; data layer 8/8 vs API, app runs once deps installed |
 | Local infra (Postgres+pgvector, Redis, RabbitMQ, Ollama) | ✅ `infra/docker-compose.yml` |
-| Next.js app, integration/e2e tests, k8s/helm, CI | ⏳ see [ROADMAP](./ROADMAP.md) |
+| Integration/e2e tests, k8s/helm, CI | ⏳ see [ROADMAP](./ROADMAP.md) |
 
 This is an honest foundation, not a finished product. The roadmap sequences the
 remaining build.

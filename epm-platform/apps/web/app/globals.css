@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Mizan design tokens (ported from the prototype) ───────────────────────── */
+:root {
+  --brand-1: #6366f1;
+  --brand-2: #8b5cf6;
+  --brand-3: #22d3ee;
+  --brand-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+
+  --c1: #3987e5; --c2: #199e70; --c3: #c98500; --c4: #9085e9; --c5: #e66767; --c6: #d55181;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+
+  --page: #f9f9f7; --surface: #ffffff; --surface-2: #f7f8fd; --elevated: #ffffff;
+  --line: rgba(15, 16, 40, 0.09); --line-2: rgba(15, 16, 40, 0.16);
+  --ink-1: #12132b; --ink-2: #4a4d70; --ink-3: #8a8db0;
+  --shadow: 0 12px 40px -14px rgba(30, 32, 80, 0.28);
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.dark {
+  --page: #0a0a12; --surface: #14152a; --surface-2: #1a1c36; --elevated: #1f2140;
+  --line: rgba(255, 255, 255, 0.08); --line-2: rgba(255, 255, 255, 0.14);
+  --ink-1: #f5f6ff; --ink-2: #b8bbe0; --ink-3: #7c7fa8;
+  --shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.6);
+  --c1: #3987e5; --c2: #199e70; --c3: #c98500; --c4: #9085e9; --c5: #e66767; --c6: #d55181;
+}
+
+@layer base {
+  body {
+    @apply bg-page text-ink-1;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* ambient brand glow, matching the prototype */
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(600px 400px at 12% -5%, rgba(99, 102, 241, 0.16), transparent 60%),
+      radial-gradient(700px 500px at 108% 8%, rgba(168, 85, 247, 0.14), transparent 60%);
+  }
+}
+
+@layer components {
+  .card { @apply bg-surface border border-line rounded-2xl shadow-card; }
+  .pill { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold; }
+  .pill-g { @apply text-good; background: color-mix(in srgb, var(--good) 18%, transparent); }
+  .pill-w { @apply text-warning; background: color-mix(in srgb, var(--warning) 20%, transparent); }
+  .pill-r { @apply text-critical; background: color-mix(in srgb, var(--critical) 20%, transparent); }
+  .pill-n { @apply text-ink-2 bg-surface-2 border border-line; }
+}

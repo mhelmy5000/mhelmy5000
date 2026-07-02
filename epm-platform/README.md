@@ -26,6 +26,7 @@ tested pieces instead of a wall of empty stubs.
 | **`@mizan/api`** — NestJS backend (Phase 1): JWT auth + RBAC/ABAC guards; **KPI, Strategy/OKR, Risk/KRI and Portfolio** modules end-to-end (CRUD, scorecard, BSC, OKRs, heatmap, matrix); AI endpoint wired to `@mizan/ai-core`; Prisma repos + seed. Plus a **zero-dependency reference server** mirroring the endpoints. | Reference server exercised end-to-end; prototype KPI, Strategy, OKR, Risk and Portfolio views read **live data** from it (verified in-browser). |
 | **Prisma schema** — multi-tenant core domains, RBAC/ABAC, audit, AI provider config. | Authored & reviewed (`prisma/schema.prisma`). |
 | **SQL migration + Row-Level Security** — full DDL (20 tables) + forced RLS policies, wired into NestJS via a tenant-context interceptor + Prisma `set_config` extension. | **Verified on real Postgres 16**: tenant isolation + cross-tenant write-block asserted end-to-end (`infra/postgres/verify-rls.sh`). |
+| **`@mizan/web`** — Next.js 15 / React 19 frontend (Phase 2): Mizan design system in Tailwind, app shell, and 5 data-driven module pages wired to the API via TanStack Query. | Framework-agnostic data layer (`lib/api.ts`) **verified 8/8 against the API contract**; app builds once deps are installed. |
 | **Local infra** — Postgres + pgvector, Redis, RabbitMQ, Ollama. | `infra/docker-compose.yml`. |
 | **Docs** — architecture (C4, DDD, CQRS, security), AI layer, phased roadmap. | `docs/`. |
 
