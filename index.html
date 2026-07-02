@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EA Strategy Builder — Enterprise Architecture Strategy Builder</title>
+  <meta name="description" content="A lightweight tool to define drivers, map capabilities, assess current vs. target maturity, and build an enterprise architecture roadmap." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">◈</span>
+      <div>
+        <h1>EA Strategy Builder</h1>
+        <p class="tagline">Enterprise Architecture Strategy Builder</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="exportJson" class="btn btn-ghost" type="button">Export JSON</button>
+      <button id="importJson" class="btn btn-ghost" type="button">Import</button>
+      <button id="exportMd" class="btn btn-ghost" type="button">Export Report</button>
+      <button id="resetAll" class="btn btn-danger" type="button">Reset</button>
+      <input id="importFile" type="file" accept="application/json" hidden />
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" data-tab="overview" role="tab" type="button">Overview</button>
+    <button class="tab" data-tab="drivers" role="tab" type="button">Drivers</button>
+    <button class="tab" data-tab="capabilities" role="tab" type="button">Capabilities</button>
+    <button class="tab" data-tab="initiatives" role="tab" type="button">Initiatives</button>
+    <button class="tab" data-tab="roadmap" role="tab" type="button">Roadmap</button>
+  </nav>
+
+  <main class="content">
+    <!-- Overview -->
+    <section class="panel is-active" data-panel="overview">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Strategy Profile</h2>
+          <label class="field">
+            <span>Organization</span>
+            <input id="orgName" type="text" placeholder="e.g. Contoso Financial" />
+          </label>
+          <label class="field">
+            <span>Vision statement</span>
+            <textarea id="vision" rows="3" placeholder="Where the architecture needs to be in 3 years…"></textarea>
+          </label>
+          <label class="field">
+            <span>Planning horizon</span>
+            <select id="horizon">
+              <option value="1">1 year</option>
+              <option value="2">2 years</option>
+              <option value="3" selected>3 years</option>
+              <option value="5">5 years</option>
+            </select>
+          </label>
+        </div>
+        <div class="card">
+          <h2>Portfolio Health</h2>
+          <div class="stat-grid">
+            <div class="stat"><span class="stat-num" id="statDrivers">0</span><span class="stat-label">Drivers</span></div>
+            <div class="stat"><span class="stat-num" id="statCaps">0</span><span class="stat-label">Capabilities</span></div>
+            <div class="stat"><span class="stat-num" id="statInits">0</span><span class="stat-label">Initiatives</span></div>
+            <div class="stat"><span class="stat-num" id="statGap">—</span><span class="stat-label">Avg. maturity gap</span></div>
+          </div>
+          <div class="health-bar" title="Share of capabilities meeting target maturity">
+            <div class="health-fill" id="healthFill"></div>
+          </div>
+          <p class="muted" id="healthLabel">Add capabilities to see target coverage.</p>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Getting started</h2>
+        <ol class="steps">
+          <li>Capture the business <strong>Drivers</strong> shaping the architecture.</li>
+          <li>Map business <strong>Capabilities</strong> and score current vs. target maturity.</li>
+          <li>Define <strong>Initiatives</strong> that close the biggest gaps.</li>
+          <li>Sequence them on the <strong>Roadmap</strong> and export the strategy.</li>
+        </ol>
+        <p class="muted">Everything is saved automatically in your browser. Nothing leaves this page until you export it.</p>
+      </div>
+    </section>
+
+    <!-- Drivers -->
+    <section class="panel" data-panel="drivers">
+      <div class="card">
+        <h2>Business &amp; Technology Drivers</h2>
+        <p class="muted">Forces that justify architectural change. Rate impact to prioritize.</p>
+        <form id="driverForm" class="inline-form">
+          <input name="title" type="text" placeholder="Driver, e.g. Regulatory reporting" required />
+          <select name="category">
+            <option value="Business">Business</option>
+            <option value="Technology">Technology</option>
+            <option value="Regulatory">Regulatory</option>
+            <option value="Customer">Customer</option>
+            <option value="Cost">Cost</option>
+          </select>
+          <select name="impact" title="Impact">
+            <option value="5">Impact: Critical</option>
+            <option value="4">Impact: High</option>
+            <option value="3" selected>Impact: Medium</option>
+            <option value="2">Impact: Low</option>
+            <option value="1">Impact: Minimal</option>
+          </select>
+          <button class="btn btn-primary" type="submit">Add driver</button>
+        </form>
+        <ul class="item-list" id="driverList"></ul>
+      </div>
+    </section>
+
+    <!-- Capabilities -->
+    <section class="panel" data-panel="capabilities">
+      <div class="card">
+        <h2>Capability Maturity</h2>
+        <p class="muted">Score each capability today vs. target on a 1–5 scale. The gap drives the roadmap.</p>
+        <form id="capForm" class="inline-form">
+          <input name="title" type="text" placeholder="Capability, e.g. Customer Onboarding" required />
+          <select name="domain">
+            <option value="Business">Business</option>
+            <option value="Data">Data</option>
+            <option value="Application">Application</option>
+            <option value="Technology">Technology</option>
+            <option value="Security">Security</option>
+          </select>
+          <label class="mini">Now
+            <select name="current">
+              <option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option>
+            </select>
+          </label>
+          <label class="mini">Target
+            <select name="target">
+              <option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" type="submit">Add capability</button>
+        </form>
+        <ul class="item-list" id="capList"></ul>
+      </div>
+    </section>
+
+    <!-- Initiatives -->
+    <section class="panel" data-panel="initiatives">
+      <div class="card">
+        <h2>Strategic Initiatives</h2>
+        <p class="muted">Programs of work that move capabilities toward their target. Effort × value sets priority.</p>
+        <form id="initForm" class="inline-form">
+          <input name="title" type="text" placeholder="Initiative, e.g. Replace legacy CRM" required />
+          <select name="value" title="Business value">
+            <option value="5">Value: Very high</option>
+            <option value="4" selected>Value: High</option>
+            <option value="3">Value: Medium</option>
+            <option value="2">Value: Low</option>
+            <option value="1">Value: Minimal</option>
+          </select>
+          <select name="effort" title="Effort">
+            <option value="1">Effort: XS</option>
+            <option value="2">Effort: S</option>
+            <option value="3" selected>Effort: M</option>
+            <option value="4">Effort: L</option>
+            <option value="5">Effort: XL</option>
+          </select>
+          <select name="phase" title="Roadmap phase">
+            <option value="Now">Now</option>
+            <option value="Next" selected>Next</option>
+            <option value="Later">Later</option>
+          </select>
+          <button class="btn btn-primary" type="submit">Add initiative</button>
+        </form>
+        <ul class="item-list" id="initList"></ul>
+      </div>
+    </section>
+
+    <!-- Roadmap -->
+    <section class="panel" data-panel="roadmap">
+      <div class="card">
+        <h2>Roadmap</h2>
+        <p class="muted">Initiatives grouped by horizon, ordered by priority (value ÷ effort).</p>
+        <div class="roadmap" id="roadmap"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>EA Strategy Builder · runs entirely in your browser</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
