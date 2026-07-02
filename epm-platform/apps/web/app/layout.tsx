@@ -5,7 +5,7 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   title: 'Mizan EPM — Enterprise Performance Management',
   description:
-    'Mizan EPM (ميزان) — strategy, KPIs, KRIs, portfolio and OKRs, unified with an AI copilot.',
+    'Mizan EPM — strategy, KPIs, KRIs, portfolio and OKRs, unified with an AI copilot.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

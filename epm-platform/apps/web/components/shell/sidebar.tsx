@@ -18,7 +18,6 @@ export function Sidebar() {
         <div>
           <div className="text-[16px] font-bold tracking-tight">
             Mizan <span className="bg-brand bg-clip-text text-transparent">EPM</span>
-            <b className="ml-1 align-[2px] text-xs font-bold text-ink-3">ميزان</b>
           </div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
             Enterprise · Balanced performance

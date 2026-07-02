@@ -20,12 +20,11 @@ Features: light/dark theme toggle, 24h/7d/30d time ranges, interactive
 crosshair and hover tooltips, and an accessible color palette that stays
 colorblind-safe in both themes.
 
-## 🏛️ Mizan EPM (ميزان) — Enterprise Performance Management platform
+## 🏛️ Mizan EPM — Enterprise Performance Management platform
 
 A larger, enterprise-grade work-in-progress: a multi-tenant EPM platform
 covering Strategy, KPIs, KRIs, Initiatives, Portfolio, Projects and OKRs, with a
-provider-agnostic AI copilot. **Mizan** (ميزان) is Arabic for "balance/scale" —
-fitting for a Balanced-Scorecard performance platform.
+provider-agnostic AI copilot.
 
 - **Folder:** [`epm-platform/`](epm-platform/) · start with its
   [README](epm-platform/README.md)
