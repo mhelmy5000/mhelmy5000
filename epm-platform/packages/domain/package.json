@@ -1,0 +1,19 @@
+{
+  "name": "@mizan/domain",
+  "version": "0.1.0",
+  "description": "Pure, framework-free EPM domain logic (KPI evaluation, RAG, scorecard rollups).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

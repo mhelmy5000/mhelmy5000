@@ -1,0 +1,9 @@
+/**
+ * @mizan/domain — pure, framework-free EPM domain logic shared across the API,
+ * jobs and reports. Currently: the KPI evaluation core. Additional bounded
+ * contexts (risk scoring, portfolio prioritization) land here as they ship.
+ */
+export * from './kpi/kpi.logic';
+export * from './risk/risk.logic';
+export * from './portfolio/portfolio.logic';
+export * from './strategy/strategy.logic';

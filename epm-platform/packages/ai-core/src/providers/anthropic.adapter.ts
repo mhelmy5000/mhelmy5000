@@ -12,7 +12,7 @@ import {
 /**
  * Anthropic Claude adapter (Messages API). System prompts are hoisted to the
  * top-level `system` field; `tools` map to Claude's tool-use schema. This is
- * the default primary provider for Helm EPM.
+ * the default primary provider for Mizan EPM.
  */
 export class AnthropicAdapter extends BaseAdapter {
   readonly id: AiProviderId = 'anthropic';

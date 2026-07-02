@@ -1,7 +1,7 @@
 {
-  "name": "@helm/ai-core",
+  "name": "@mizan/ai-core",
   "version": "0.1.0",
-  "description": "Provider-agnostic AI abstraction layer for Helm EPM (Claude, OpenAI, Gemini, Ollama, Azure OpenAI, Bedrock) with priority-based fallback, RAG and prompt templates.",
+  "description": "Provider-agnostic AI abstraction layer for Mizan EPM (Claude, OpenAI, Gemini, Ollama, Azure OpenAI, Bedrock) with priority-based fallback, RAG and prompt templates.",
   "license": "UNLICENSED",
   "type": "module",
   "main": "dist/index.js",

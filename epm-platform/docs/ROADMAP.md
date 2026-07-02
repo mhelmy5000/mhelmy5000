@@ -1,4 +1,4 @@
-# Helm EPM — Delivery Roadmap
+# Mizan EPM — Delivery Roadmap
 
 An honest, phased plan. A complete commercial EPM platform is a multi-team,
 multi-quarter build; this sequences it so every phase ships something usable and
@@ -9,26 +9,57 @@ verifiable rather than a wall of stubs.
 ## Phase 0 — Foundation (this repository)
 - ✅ Premium UX prototype: enterprise shell, 7 modules, command palette,
   dark/light, EN/AR RTL, interactive charts (verified in-browser).
-- ✅ `@helm/ai-core`: provider-agnostic router, 5 adapters (+Bedrock stub), RAG
+- ✅ `@mizan/ai-core`: provider-agnostic router, 5 adapters (+Bedrock stub), RAG
   ports, prompt templates, insight service (typechecks under `strict`).
 - ✅ Prisma schema for core domains (multi-tenant, RBAC/ABAC, audit).
 - ✅ Local infra compose (Postgres+pgvector, Redis, RabbitMQ, Ollama).
 - ✅ Architecture + AI-layer documentation.
 
-## Phase 1 — Backend spine (4–6 wks)
-- 🔨 NestJS app skeleton; config, logging, OpenTelemetry, health checks.
-- 🔨 IAM: OIDC/SAML/Entra login, JWT, RBAC guard + ABAC policy engine.
-- 🔨 Tenant + audit + notification modules; transactional outbox on RabbitMQ.
-- 🔨 Prisma migrations + RLS policies; seed data (sample org, strategy, KPIs…).
-- 🔨 KPI + Strategy modules end-to-end (CRUD, measurements, RAG calc) with REST +
-  GraphQL and Swagger; unit + integration tests.
+## Phase 1 — Backend spine (in progress)
+- ✅ NestJS app skeleton (`apps/api`): bootstrap, config, Swagger, global
+  validation, Helmet/CORS, `PrismaModule`.
+- ✅ IAM: JWT auth (Passport) with a global guard (`@Public()` opt-out), **RBAC**
+  via `@RequirePermissions` + `PermissionsGuard`, **ABAC** org-unit scopes on the
+  principal, token issuance resolving roles→permissions from the DB.
+- ✅ **KPI module end-to-end**: CRUD, measurement upsert, weighted scorecard,
+  RAG evaluation — delegated to `@mizan/domain` (pure core, **24/24 unit tests**).
+- ✅ AI endpoint (`/api/ai/kpi-analysis`) wired to `@mizan/ai-core`, grounded on
+  the live scorecard.
+- ✅ Seed data (`prisma/seed.ts`): demo tenant, 3 roles, 2 users, 6 KPIs × 7
+  months of measurements.
+- ✅ Zero-dependency **reference API server** mirroring the KPI/AI endpoints; the
+  prototype's KPI Scorecard now reads **live data** from it (verified).
+- ✅ **Risk/KRI module**: scoring (likelihood×impact), severity bands, appetite
+  breaches, 5×5 heatmap, register aggregation — via `@mizan/domain`. Prototype
+  Risk view reads live data.
+- ✅ **Portfolio module**: value/risk quadrant classification, prioritization
+  scoring, portfolio rollups — via `@mizan/domain`. Prototype Portfolio view reads
+  live data.
+- ✅ **Strategy / OKR module**: key-result progress (increase & decrease goals),
+  objective scoring & status, Balanced-Scorecard rollups (objective → perspective
+  → strategy) — via `@mizan/domain`. Prototype Strategy Map + OKR views read live
+  data. (Domain now **78 unit tests** total.)
+- ✅ **Database migration + Row-Level Security**: full DDL (20 tables) in
+  `prisma/migrations/0001_init`, forced RLS policies in `infra/postgres/rls.sql`,
+  wired into NestJS via a tenant-context interceptor + Prisma RLS extension
+  (`set_config('app.tenant_id', …)`). **Verified on real Postgres 16** —
+  isolation + cross-tenant write-block asserted by `infra/postgres/verify-rls.sh`.
+- 🔨 Wire the full NestJS app process against the live DB (needs `pnpm install`
+  — deps unavailable in the CI sandbox); connect as `mizan_app`/`mizan_system`.
+- 🔨 Transactional outbox on RabbitMQ; audit + notifications.
+- 🔨 GraphQL resolvers alongside REST; integration tests.
 
-## Phase 2 — Frontend spine (4–6 wks)
-- ⏳ Next.js 15 app: auth, tenant switch, i18n (EN/AR), theming from prototype.
-- ⏳ Shared `@helm/ui` component + chart library (Recharts/D3/React Flow) built
-  from the prototype's design system.
-- ⏳ Executive Dashboard, Strategy Map, KPI Scorecards wired to the live API via
-  TanStack Query; Zustand for client state; forms via RHF+Zod.
+## Phase 2 — Frontend spine (in progress)
+- ✅ Next.js 15 (App Router) + React 19 app scaffolded (`apps/web`): root layout,
+  providers (TanStack Query + next-themes), Mizan design tokens ported to
+  `globals.css` + Tailwind, app shell (sidebar + topbar).
+- ✅ Typed, **verified** data layer: `lib/api.ts` (framework-agnostic `MizanApi`
+  client) + `lib/types.ts` (DTO contract) — exercised end-to-end against the API
+  (8/8 assertions across all module endpoints + login).
+- ✅ Five data-driven module pages wired via TanStack Query hooks: Executive
+  Dashboard, KPI Scorecards, Strategy Map, OKRs, Risk & KRIs, Portfolio matrix.
+- 🔨 Auth flow (login → JWT), tenant switch, i18n (EN/AR RTL), forms (RHF+Zod).
+- 🔨 Extract shared `@mizan/ui` package; richer charts (D3/React Flow).
 
 ## Phase 3 — Remaining modules (6–10 wks)
 - ⏳ KRI/Risk, Portfolio, Project/PMO, OKR, Reviews modules (API + UI).
@@ -49,6 +80,8 @@ verifiable rather than a wall of stubs.
 - ⏳ Admin/User/Developer guides; ER/sequence/component diagrams.
 
 ## Suggested next step
-Stand up **Phase 1** starting with IAM + the KPI module end-to-end against the
-existing Prisma schema and `@helm/ai-core`, so the prototype's KPI Scorecard can
-be pointed at real data. Say the word and we build that module next.
+IAM + KPI + Strategy/OKR + Risk/KRI + Portfolio are done, each with a tested
+domain core and the prototype consuming them live. Next: stand the full NestJS
+app up against Postgres (migrations + RLS + the seed) so every module runs on a
+real database, add integration/e2e tests, then move to Phase 2 (the Next.js
+frontend built from the prototype's design system).
