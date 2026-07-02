@@ -4,3 +4,5 @@
  * contexts (risk scoring, portfolio prioritization) land here as they ship.
  */
 export * from './kpi/kpi.logic';
+export * from './risk/risk.logic';
+export * from './portfolio/portfolio.logic';

@@ -88,6 +88,66 @@ function kpiAnalysis() {
   return { text, provider: 'reference', model: 'domain-core', grounded: true, sources: sc.items.map((i) => i.code), overallAttainmentPct: sc.overallAttainmentPct };
 }
 
+// ── risk domain mirror + seed (see packages/domain/src/risk) ────────────────
+const riskScore = (l, i) => Math.max(1, Math.min(5, l)) * Math.max(1, Math.min(5, i));
+const riskLevel = (s) => (s >= 15 ? 'CRITICAL' : s >= 10 ? 'HIGH' : s >= 5 ? 'MODERATE' : 'LOW');
+const RISKS = [
+  { code: 'R-01', title: 'Cyber breach of citizen data', owner: 'CISO', l: 4, i: 5, appetite: 8, category: 'Security' },
+  { code: 'R-04', title: 'Vendor / supply concentration', owner: 'Procurement', l: 3, i: 4, appetite: 9, category: 'Operational' },
+  { code: 'R-07', title: 'Talent attrition (key roles)', owner: 'CHRO', l: 4, i: 3, appetite: 9, category: 'People' },
+  { code: 'R-09', title: 'Budget overrun on flagship', owner: 'CFO', l: 3, i: 3, appetite: 9, category: 'Financial' },
+  { code: 'R-12', title: 'Regulatory change exposure', owner: 'Legal', l: 2, i: 4, appetite: 8, category: 'Compliance' },
+  { code: 'R-15', title: 'Legacy system failure', owner: 'CIO', l: 2, i: 5, appetite: 8, category: 'Technology' },
+  { code: 'R-18', title: 'Change fatigue', owner: 'PMO', l: 3, i: 2, appetite: 9, category: 'Delivery' },
+];
+function riskRegister() {
+  const risks = RISKS.map((r) => {
+    const score = riskScore(r.l, r.i);
+    return { code: r.code, title: r.title, owner: r.owner, category: r.category, likelihood: r.l, impact: r.i,
+      score, level: riskLevel(score), appetite: r.appetite, appetiteBreached: score > r.appetite };
+  });
+  const heatmap = [];
+  for (let l = 5; l >= 1; l--) {
+    const row = [];
+    for (let i = 1; i <= 5; i++) {
+      const score = riskScore(l, i);
+      row.push({ likelihood: l, impact: i, score, level: riskLevel(score),
+        risks: risks.filter((r) => r.likelihood === l && r.impact === i).map((r) => r.code) });
+    }
+    heatmap.push(row);
+  }
+  const byLevel = risks.reduce((a, r) => ((a[r.level] = (a[r.level] ?? 0) + 1), a), { LOW: 0, MODERATE: 0, HIGH: 0, CRITICAL: 0 });
+  return { risks, heatmap, summary: { total: risks.length, byLevel, appetiteBreaches: risks.filter((r) => r.appetiteBreached).length } };
+}
+
+// ── portfolio domain mirror + seed (see packages/domain/src/portfolio) ───────
+const quadrant = (v, r, m = 5) => (v >= m ? (r < m ? 'PRIORITIZE' : 'STRATEGIC_BET') : (r < m ? 'QUICK_WIN' : 'RECONSIDER'));
+const prioScore = (v, r, b) => Math.round(Math.max(0, v * 10 - r * 4 + (b > 0 ? Math.min(10, 400 / b) : 5)));
+const INITIATIVES = [
+  { name: 'Digital Government Platform', value: 9.2, risk: 3.1, budget: 48 },
+  { name: 'Smart City Program', value: 8.4, risk: 6.2, budget: 72 },
+  { name: 'National Data Fabric', value: 7.8, risk: 4.6, budget: 36 },
+  { name: 'Citizen Experience Overhaul', value: 6.9, risk: 2.4, budget: 22 },
+  { name: 'Cloud Migration Wave 2', value: 5.6, risk: 5.8, budget: 31 },
+  { name: 'AI Center of Excellence', value: 8.9, risk: 3.9, budget: 18 },
+];
+function portfolioMatrix() {
+  const items = INITIATIVES.map((it) => ({ ...it, quadrant: quadrant(it.value, it.risk),
+    valueToRisk: Math.round((it.risk <= 0 ? it.value : it.value / it.risk) * 100) / 100 }));
+  const byQuadrant = items.reduce((a, i) => ((a[i.quadrant] = (a[i.quadrant] ?? 0) + 1), a), { PRIORITIZE: 0, STRATEGIC_BET: 0, QUICK_WIN: 0, RECONSIDER: 0 });
+  const summary = {
+    count: items.length,
+    totalBudget: Math.round(items.reduce((a, i) => a + i.budget, 0) * 10) / 10,
+    avgValue: Math.round((items.reduce((a, i) => a + i.value, 0) / items.length) * 10) / 10,
+    avgRisk: Math.round((items.reduce((a, i) => a + i.risk, 0) / items.length) * 10) / 10,
+    highRiskCount: items.filter((i) => i.risk > 5).length,
+    byQuadrant,
+  };
+  const priorityOrder = INITIATIVES.map((i) => ({ name: i.name, score: prioScore(i.value, i.risk, i.budget), quadrant: quadrant(i.value, i.risk) }))
+    .sort((a, b) => b.score - a.score);
+  return { items, summary, priorityOrder };
+}
+
 // ── http ────────────────────────────────────────────────────────────────────
 const json = (res, code, body) => {
   res.writeHead(code, {
@@ -108,6 +168,8 @@ const server = createServer((req, res) => {
     return json(res, 201, { accessToken: 'dev.reference.token', user: { email: 'minister@gov.example', roles: ['epm.admin'] } });
   if (pathname === '/api/kpis' && req.method === 'GET') return json(res, 200, KPIS.map(toView));
   if (pathname === '/api/kpis/scorecard' && req.method === 'GET') return json(res, 200, scorecard());
+  if (pathname === '/api/risks/register' && req.method === 'GET') return json(res, 200, riskRegister());
+  if (pathname === '/api/portfolio/matrix' && req.method === 'GET') return json(res, 200, portfolioMatrix());
   if (pathname === '/api/ai/kpi-analysis' && req.method === 'POST') return json(res, 200, kpiAnalysis());
 
   json(res, 404, { statusCode: 404, message: `no route for ${req.method} ${pathname}` });

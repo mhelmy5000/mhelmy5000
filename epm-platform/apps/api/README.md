@@ -35,6 +35,11 @@ AiController ─▶ AiService ─▶ @helm/ai-core (router + fallback) + KpiServ
 | PATCH | `/api/kpis/:id` | `kpi:update` | Update a KPI |
 | POST | `/api/kpis/:id/measurements` | `kpi:update` | Record/upsert a measurement |
 | DELETE | `/api/kpis/:id` | `kpi:delete` | Soft-delete (archive) |
+| GET | `/api/risks` | `risk:read` | List risks with score + severity level |
+| GET | `/api/risks/register` | `risk:read` | Register: risks + 5×5 heatmap + RAG summary |
+| POST/PATCH/DELETE | `/api/risks/:id?` | `risk:*` | Create / update / close a risk |
+| GET | `/api/portfolio/matrix` | `portfolio:read` | Value/risk matrix + quadrants + priority order |
+| POST | `/api/portfolio/initiatives` | `portfolio:create` | Add a portfolio initiative (demand intake) |
 | POST | `/api/ai/kpi-analysis` | `kpi:read`,`ai:use` | AI analysis of the scorecard |
 | POST | `/api/ai/executive-summary` | `ai:use` | AI executive summary |
 
@@ -64,9 +69,10 @@ the same seed data and an inline mirror of `@helm/domain`:
 node apps/api/dev-server.mjs          # http://localhost:3001/api  (health: /api/health)
 ```
 
-The prototype's **KPI Scorecard** auto-connects to `http://localhost:3001/api`
-and flips its badge to **“Live API”** when this (or the full API) is running;
-otherwise it shows demo data. Override the base URL in the browser console:
+The prototype's **KPI Scorecard**, **Risk & KRIs**, and **Portfolio** views
+auto-connect to `http://localhost:3001/api` and flip their badge to **“Live
+API”** when this (or the full API) is running; otherwise they show demo data.
+Override the base URL in the browser console:
 `localStorage.setItem('helm.apiBase', 'http://host:port/api')`.
 
 ## Status

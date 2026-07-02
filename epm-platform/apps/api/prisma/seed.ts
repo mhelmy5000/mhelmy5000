@@ -35,8 +35,8 @@ async function main(): Promise<void> {
   });
   const analystRole = await prisma.role.upsert({
     where: { tenantId_key: { tenantId: tenant.id, key: 'kpi.analyst' } },
-    update: { permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'ai:use'] },
-    create: { tenantId: tenant.id, key: 'kpi.analyst', name: 'KPI Analyst', permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'ai:use'] },
+    update: { permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'risk:read', 'portfolio:read', 'ai:use'] },
+    create: { tenantId: tenant.id, key: 'kpi.analyst', name: 'Performance Analyst', permissions: ['kpi:read', 'kpi:create', 'kpi:update', 'risk:read', 'portfolio:read', 'ai:use'] },
   });
 
   const admin = await prisma.user.upsert({
@@ -83,7 +83,58 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`Seeded tenant "${tenant.name}" with ${KPIS.length} KPIs, 3 roles, 2 users.`);
+  // ── Risks ──
+  const RISKS = [
+    { code: 'R-01', title: 'Cyber breach of citizen data', category: 'Security', l: 4, i: 5, appetite: 8, ownerId: admin.id },
+    { code: 'R-04', title: 'Vendor / supply concentration', category: 'Operational', l: 3, i: 4, appetite: 9 },
+    { code: 'R-07', title: 'Talent attrition (key roles)', category: 'People', l: 4, i: 3, appetite: 9 },
+    { code: 'R-09', title: 'Budget overrun on flagship', category: 'Financial', l: 3, i: 3, appetite: 9 },
+    { code: 'R-12', title: 'Regulatory change exposure', category: 'Compliance', l: 2, i: 4, appetite: 8 },
+    { code: 'R-15', title: 'Legacy system failure', category: 'Technology', l: 2, i: 5, appetite: 8 },
+    { code: 'R-18', title: 'Change fatigue', category: 'Delivery', l: 3, i: 2, appetite: 9 },
+  ];
+  for (const r of RISKS) {
+    const score = r.l * r.i;
+    await prisma.risk.upsert({
+      where: { tenantId_code: { tenantId: tenant.id, code: r.code } },
+      update: { likelihood: r.l, impact: r.i, inherentScore: score, residualScore: score, appetite: r.appetite },
+      create: {
+        tenantId: tenant.id, code: r.code, title: r.title, category: r.category,
+        likelihood: r.l, impact: r.i, inherentScore: score, residualScore: score,
+        appetite: r.appetite, status: 'OPEN', ownerId: r.ownerId,
+      },
+    });
+  }
+
+  // ── Portfolio initiatives ──
+  const portfolio = await prisma.portfolio.upsert({
+    where: { id: `${tenant.id}-strategic` },
+    update: {},
+    create: { id: `${tenant.id}-strategic`, tenantId: tenant.id, name: 'Strategic Portfolio', type: 'STRATEGIC' },
+  });
+  const INITIATIVES = [
+    { title: 'Digital Government Platform', value: 9.2, risk: 3.1, budget: 48 },
+    { title: 'Smart City Program', value: 8.4, risk: 6.2, budget: 72 },
+    { title: 'National Data Fabric', value: 7.8, risk: 4.6, budget: 36 },
+    { title: 'Citizen Experience Overhaul', value: 6.9, risk: 2.4, budget: 22 },
+    { title: 'Cloud Migration Wave 2', value: 5.6, risk: 5.8, budget: 31 },
+    { title: 'AI Center of Excellence', value: 8.9, risk: 3.9, budget: 18 },
+  ];
+  for (const it of INITIATIVES) {
+    await prisma.initiative.upsert({
+      where: { id: `${tenant.id}-${it.title}` },
+      update: { strategicValue: it.value, executionRisk: it.risk, budget: it.budget },
+      create: {
+        id: `${tenant.id}-${it.title}`, tenantId: tenant.id, portfolioId: portfolio.id,
+        title: it.title, strategicValue: it.value, executionRisk: it.risk, budget: it.budget, status: 'ON_TRACK',
+      },
+    });
+  }
+
+  console.log(
+    `Seeded tenant "${tenant.name}": ${KPIS.length} KPIs, ${RISKS.length} risks, ` +
+    `${INITIATIVES.length} initiatives, 3 roles, 2 users.`,
+  );
 }
 
 main()

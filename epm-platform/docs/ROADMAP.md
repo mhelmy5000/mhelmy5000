@@ -29,6 +29,12 @@ verifiable rather than a wall of stubs.
   months of measurements.
 - ✅ Zero-dependency **reference API server** mirroring the KPI/AI endpoints; the
   prototype's KPI Scorecard now reads **live data** from it (verified).
+- ✅ **Risk/KRI module**: scoring (likelihood×impact), severity bands, appetite
+  breaches, 5×5 heatmap, register aggregation — via `@helm/domain`. Prototype
+  Risk view reads live data.
+- ✅ **Portfolio module**: value/risk quadrant classification, prioritization
+  scoring, portfolio rollups — via `@helm/domain`. Prototype Portfolio view reads
+  live data. (Risk + Portfolio domain: **32 more unit tests**, 56 total.)
 - 🔨 Prisma migrations + Postgres RLS policies; wire the full NestJS app against
   a live database (needs `pnpm install` — deps unavailable in the CI sandbox).
 - 🔨 Strategy module; transactional outbox on RabbitMQ; audit + notifications.
@@ -60,7 +66,7 @@ verifiable rather than a wall of stubs.
 - ⏳ Admin/User/Developer guides; ER/sequence/component diagrams.
 
 ## Suggested next step
-Phase 1's IAM + KPI slice is done and the prototype consumes it live. Next:
-extend the same patterns to the **Risk/KRI** and **Portfolio** modules (domain
-core + repository + controller + prototype wiring), and stand the full NestJS app
-up against Postgres with migrations + RLS.
+IAM + KPI + Risk/KRI + Portfolio are done, each with a tested domain core and
+the prototype consuming them live. Next: the **Strategy/OKR** module on the same
+pattern, then stand the full NestJS app up against Postgres (migrations + RLS +
+seed) so all four modules run on a real database, and add integration tests.

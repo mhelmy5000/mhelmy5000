@@ -569,6 +569,64 @@ async function loadLiveKpis(){
   }
 }
 
+/* ---- Risk heatmap + register: shared builders + live fetch ---- */
+function heatColor(score){return score>=15?cv('--critical'):score>=10?cv('--serious'):score>=5?cv('--warning'):cv('--good');}
+function normalizeRisks(list,isLive){
+  return list.map(r=>isLive
+    ?{code:r.code,title:r.title,owner:r.owner,l:r.likelihood,i:r.impact,score:r.score,breach:r.appetiteBreached}
+    :{code:r.id,title:r.name,owner:r.owner,l:r.l,i:r.i,score:r.l*r.i,breach:false});
+}
+function heatHtml(risks){
+  let cells=`<div class="axis"></div>`+[1,2,3,4,5].map(i=>`<div class="axis">Impact ${i}</div>`).join("");
+  for(let l=5;l>=1;l--){
+    cells+=`<div class="axis rlab">Likelihood ${l}</div>`;
+    for(let i=1;i<=5;i++){
+      const here=risks.filter(r=>r.l===l&&r.i===i);
+      cells+=`<div class="cell" style="background:${heatColor(l*i)}" data-toast="${here.length?here.map(r=>r.code+' '+r.title).join(' · '):'No risks in this cell'}">${l*i}${here.length?`<span class="risk-chip">${here.length}</span>`:""}</div>`;
+    }
+  }
+  return cells;
+}
+function riskRegisterHtml(risks){
+  return risks.map(r=>{const cls=r.score>=15?"r":r.score>=8?"w":"g";return`<div class="kv"><span><b style="color:var(--ink-1)">${r.code}</b> · ${r.title}${r.breach?' <span class="pill r" style="padding:1px 6px;font-size:9px">over appetite</span>':''}<br><small style="color:var(--ink-3)">${r.owner}</small></span><span class="pill ${cls}">${r.score}</span></div>`}).join("");
+}
+async function loadLiveRisks(){
+  const src=$("#kriSource"),heat=$("#kriHeat"),reg=$("#kriRegister");if(!src||!heat||!reg)return;
+  try{
+    const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),1500);
+    const res=await fetch(`${API_BASE}/risks/register`,{signal:ctrl.signal});clearTimeout(t);
+    if(!res.ok)throw 0;const data=await res.json();
+    const rs=normalizeRisks(data.risks,true);
+    heat.innerHTML=heatHtml(rs);reg.innerHTML=riskRegisterHtml(rs);wireToasts();
+    src.textContent=`Live API · ${data.summary.byLevel.CRITICAL} critical`;src.className='pill g';
+  }catch{src.textContent='Demo data (API offline)';src.className='pill n';}
+}
+
+/* ---- Portfolio matrix: live data swaps into PF_DATA, then re-render ---- */
+const PF_COLORS=['c1','c4','c2','c3','c6','c5'];
+let PF_DATA=PORTFOLIO;
+function pfSummaryHtml(items){
+  const total=items.reduce((a,p)=>a+p.budget,0);
+  const avg=items.length?(items.reduce((a,p)=>a+p.value,0)/items.length).toFixed(1):'—';
+  const highRisk=items.filter(p=>p.risk>5).length;
+  return `<div class="kv"><span>Total budget</span><b>$${Math.round(total)}M</b></div>
+    <div class="kv"><span>Programs</span><b>${items.length}</b></div>
+    <div class="kv"><span>Avg strategic value</span><b>${avg}/10</b></div>
+    <div class="kv"><span>High-risk programs</span><b style="color:var(--warning)">${highRisk}</b></div>`;
+}
+async function loadLivePortfolio(){
+  const src=$("#pfSource");if(!src)return;
+  try{
+    const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),1500);
+    const res=await fetch(`${API_BASE}/portfolio/matrix`,{signal:ctrl.signal});clearTimeout(t);
+    if(!res.ok)throw 0;const data=await res.json();
+    PF_DATA=data.items.map((it,idx)=>({name:it.name,value:it.value,risk:it.risk,budget:it.budget,color:PF_COLORS[idx%PF_COLORS.length]}));
+    renderBubble();$("#pfDonut").innerHTML=donut(PF_DATA.map(p=>({v:p.budget,color:'--'+p.color})),140);
+    $("#pfSummary").innerHTML=pfSummaryHtml(PF_DATA);
+    src.textContent=`Live API · $${data.summary.totalBudget}M`;src.className='pill g';
+  }catch{src.textContent='Demo data (API offline)';src.className='pill n';}
+}
+
 const VIEWS={
   dash:()=>`
   <div class="page-head">
@@ -661,41 +719,28 @@ const VIEWS={
     <tbody id="kpiBody">${kpiRows(KPIS.map(normalizeStaticKpi))}</tbody></table></div>`,
 
   kri:()=>{
-    const lvl=(l,i)=>{const s=l*i;return s>=15?cv('--critical'):s>=10?cv('--serious'):s>=5?cv('--warning'):cv('--good');};
-    let cells="";
-    // header row
-    cells+=`<div class="axis"></div>`+[1,2,3,4,5].map(i=>`<div class="axis">Impact ${i}</div>`).join("");
-    for(let l=5;l>=1;l--){
-      cells+=`<div class="axis rlab">Likelihood ${l}</div>`;
-      for(let i=1;i<=5;i++){
-        const here=RISKS.filter(r=>r.l===l&&r.i===i);
-        cells+=`<div class="cell" style="background:${lvl(l,i)}" data-toast="${here.length?here.map(r=>r.id+' '+r.name).join(' · '):'No risks in this cell'}">${l*i}${here.length?`<span class="risk-chip">${here.length}</span>`:""}</div>`;
-      }
-    }
+    const rs=normalizeRisks(RISKS,false);
     return `
-    <div class="page-head"><div class="lead"><h2>Risk & KRIs</h2><p>Enterprise risk heat map (5×5 residual exposure) with live Key Risk Indicators and mitigation status.</p></div>
+    <div class="page-head"><div class="lead"><h2>Risk & KRIs <span id="kriSource" class="pill n">Demo data</span></h2><p>Enterprise risk heat map (5×5 residual exposure) with Key Risk Indicators — scored and classified by the shared domain core.</p></div>
       <div class="head-actions"><button class="btn ai" data-nav="ai">${icon("spark")} Predict emerging risks</button><button class="btn primary" data-toast="Risk registered.">${icon("plus")} Register risk</button></div></div>
     <div class="grid g-3">
       <div class="card col-2"><h3>Residual risk heat map</h3><p class="card-sub">Colour = likelihood × impact · number badge = risks in cell</p>
-        <div class="heat">${cells}</div></div>
+        <div class="heat" id="kriHeat">${heatHtml(rs)}</div></div>
       <div class="card"><h3>Risk register</h3><p class="card-sub">Top exposures & owners</p>
-        ${RISKS.map(r=>{const sc=r.l*r.i;const cls=sc>=15?"r":sc>=8?"w":"g";return`<div class="kv"><span><b style="color:var(--ink-1)">${r.id}</b> · ${r.name}<br><small style="color:var(--ink-3)">${r.owner}</small></span><span class="pill ${cls}">${sc}</span></div>`}).join("")}</div>
+        <div id="kriRegister">${riskRegisterHtml(rs)}</div></div>
     </div>`;
   },
 
   portfolio:()=>{
     return `
-    <div class="page-head"><div class="lead"><h2>Portfolio</h2><p>Strategic investment portfolio plotted by value vs. execution risk. Bubble size = budget. Prioritize the top-left quadrant (high value, low risk).</p></div>
+    <div class="page-head"><div class="lead"><h2>Portfolio <span id="pfSource" class="pill n">Demo data</span></h2><p>Strategic investment portfolio plotted by value vs. execution risk. Bubble size = budget. Prioritize the top-left quadrant (high value, low risk).</p></div>
       <div class="head-actions"><button class="btn ai" data-nav="ai">${icon("spark")} Optimize portfolio</button><button class="btn primary" data-toast="Demand intake opened.">${icon("plus")} New demand</button></div></div>
     <div class="grid g-3">
       <div class="card col-2"><h3>Value / Risk matrix</h3><p class="card-sub">Strategic value (y) vs execution risk (x) · size = budget ($M)</p>
         <div id="bubble" style="width:100%"></div></div>
       <div class="card"><h3>Portfolio summary</h3><p class="card-sub">FY2026 investment</p>
         <div class="ring-wrap" style="margin-bottom:8px"><div id="pfDonut"></div></div>
-        <div class="kv"><span>Total budget</span><b>$${PORTFOLIO.reduce((a,p)=>a+p.budget,0)}M</b></div>
-        <div class="kv"><span>Programs</span><b>${PORTFOLIO.length}</b></div>
-        <div class="kv"><span>Avg strategic value</span><b>${(PORTFOLIO.reduce((a,p)=>a+p.value,0)/PORTFOLIO.length).toFixed(1)}/10</b></div>
-        <div class="kv"><span>High-risk programs</span><b style="color:var(--warning)">${PORTFOLIO.filter(p=>p.risk>5).length}</b></div>
+        <div id="pfSummary">${pfSummaryHtml(PF_DATA)}</div>
       </div>
     </div>`;
   },
@@ -790,8 +835,9 @@ function render(id){
   $$("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.nav===id));
   // per-view chart init
   if(id==="dash"){areaLine($("#perfChart"),perfSeries,"--c1");$("#invDonut").innerHTML=donut(PORTFOLIO.slice(0,4).map(p=>({v:p.budget,color:'--'+p.color})));}
-  if(id==="portfolio"){renderBubble();$("#pfDonut").innerHTML=donut(PORTFOLIO.map(p=>({v:p.budget,color:'--'+p.color})),140);}
+  if(id==="portfolio"){renderBubble();$("#pfDonut").innerHTML=donut(PF_DATA.map(p=>({v:p.budget,color:'--'+p.color})),140);loadLivePortfolio();}
   if(id==="kpi"){loadLiveKpis();}
+  if(id==="kri"){loadLiveRisks();}
   if(id==="ai"){initChat();}
   wireToasts();
   $("#content").scrollTop=0;
@@ -808,7 +854,7 @@ function renderBubble(){
   el.appendChild(svg("rect",{x:m.l,y:m.t,width:iw/2,height:ih/2,fill:cv("--good"),opacity:.06}));
   const axx=svg("text",{x:m.l+iw/2,y:H-8,"text-anchor":"middle","font-size":11,fill:cv("--ink-3")});axx.textContent="Execution risk →";el.appendChild(axx);
   const axy=svg("text",{x:14,y:m.t+ih/2,"text-anchor":"middle","font-size":11,fill:cv("--ink-3"),transform:`rotate(-90 14 ${m.t+ih/2})`});axy.textContent="Strategic value →";el.appendChild(axy);
-  PORTFOLIO.forEach(p=>{
+  PF_DATA.forEach(p=>{
     const r=8+p.budget/6;
     const c=svg("circle",{cx:x(p.risk),cy:y(p.value),r,fill:cv('--'+p.color),opacity:.82,stroke:cv("--surface"),"stroke-width":2,style:"cursor:pointer;transition:.15s"});
     c.addEventListener("mouseenter",e=>{c.setAttribute("opacity",1);showTip(`<div class="tt">${p.name}</div><div class="tr"><span>Value</span><b>${p.value}/10</b></div><div class="tr"><span>Risk</span><b>${p.risk}/10</b></div><div class="tr"><span>Budget</span><b>$${p.budget}M</b></div>`,e);});
